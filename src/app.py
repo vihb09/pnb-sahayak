@@ -1,26 +1,26 @@
 """
 app.py  -  the web server for PNB Sahayak (the voice assistant).
 
-Serves one web page (the mic + "show the work" panel) and connects it to the
-answer brain:
+Two-phase for speed: the answer text + source come back first (fast), then the
+browser asks for the spoken audio separately so you SEE the answer right away.
 
-  POST /api/ask       : microphone audio -> listen -> answer -> speak -> JSON
-  POST /api/ask_text  : typed question   ->        answer -> speak -> JSON
-  GET  /api/info      : how many real documents are loaded
+  POST /api/ask       : microphone audio (WAV) -> transcript + answer + timings
+  POST /api/ask_text  : typed question         -> answer + timings
+  POST /api/speak     : text + language        -> spoken audio (base64 WAV)
+  GET  /api/info      : status + how many real documents are loaded
 
-Run it from the project root with:   py src/app.py
-Then open http://127.0.0.1:8000 in your browser.
+Run from the project root:   py src/app.py    ->   http://127.0.0.1:8000
 """
 import base64
 import re
 import time
-from pathlib import Path
 
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
+from pathlib import Path
 
 import sarvam_client as sc
-from assistant import Assistant
+from assistant import Assistant, POLITE
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 
@@ -29,34 +29,15 @@ bot = Assistant()   # builds the document search index once, at startup
 
 
 def _guess_language(text: str) -> str:
-    """Very simple: any Devanagari letter -> Hindi, otherwise English."""
     return "hi-IN" if re.search(r"[ऀ-ॿ]", text) else "en-IN"
 
 
-def _speak_safe(text: str, language_code: str) -> str:
-    """Turn the answer into speech (base64 WAV). Returns '' if TTS fails."""
-    try:
-        wav = sc.speak(text, language_code)
-        return base64.b64encode(wav).decode()
-    except Exception:
-        return ""
-
-
-def _package(result: dict, transcript: str, language_code: str, timings: dict) -> dict:
-    t = time.time()
-    audio_b64 = _speak_safe(result["answer"], language_code)
-    timings["speak_ms"] = int((time.time() - t) * 1000)
+def _empty_reply(transcript: str, language_code: str) -> dict:
     return {
-        "transcript": transcript,
-        "language_code": language_code,
-        "query_en": result.get("query_en", ""),
-        "answer": result["answer"],
-        "answer_en": result.get("answer_en", ""),
-        "source": result.get("source"),
-        "confidence": result.get("confidence"),
-        "score": result.get("score"),
-        "audio_base64": audio_b64,
-        "timings": timings,
+        "transcript": transcript, "language_code": language_code, "style_label": "—",
+        "query_en": "", "answer": POLITE, "answer_en": POLITE, "source": None,
+        "confidence": "Low", "score": 0.0, "escalate": True, "tts_lang": "en-IN",
+        "timings": {},
     }
 
 
@@ -67,46 +48,57 @@ def index():
 
 @app.get("/api/info")
 def info():
-    return {"num_documents": bot.kb.num_documents, "num_passages": len(bot.kb.chunks)}
+    return {"status": "ready", "num_documents": bot.kb.num_documents,
+            "num_passages": len(bot.kb.chunks)}
 
 
 @app.post("/api/ask")
 async def ask(audio: UploadFile = File(...)):
-    audio_bytes = await audio.read()
-    timings = {}
+    try:
+        audio_bytes = await audio.read()
+        t = time.time()
+        heard = sc.listen(audio_bytes, filename=audio.filename or "recording.wav",
+                          content_type=audio.content_type or "audio/wav")
+        listen_ms = int((time.time() - t) * 1000)
 
-    t = time.time()
-    heard = sc.listen(
-        audio_bytes,
-        filename=audio.filename or "recording.webm",
-        content_type=audio.content_type or "audio/webm",
-    )
-    timings["listen_ms"] = int((time.time() - t) * 1000)
+        transcript = heard["transcript"]
+        if not transcript:
+            r = _empty_reply("", heard["language_code"])
+            r["answer"] = r["answer_en"] = "Sorry, I could not hear any speech. Please try again."
+            r["timings"] = {"listen_ms": listen_ms}
+            return JSONResponse(r)
 
-    transcript = heard["transcript"]
-    language_code = heard["language_code"]
-    if not transcript:
-        return JSONResponse({
-            "transcript": "",
-            "answer": "Sorry, I could not hear any speech. Please try again.",
-            "source": None, "confidence": None, "audio_base64": "",
-            "language_code": language_code, "timings": timings,
-        })
-
-    t = time.time()
-    result = bot.answer(transcript, language_code)
-    timings["think_ms"] = int((time.time() - t) * 1000)
-    return JSONResponse(_package(result, transcript, language_code, timings))
+        result = bot.answer(transcript, heard["language_code"])
+        result["timings"]["listen_ms"] = listen_ms
+        return JSONResponse(result)
+    except Exception as e:
+        print("ERROR in /api/ask:", repr(e))
+        return JSONResponse(_empty_reply("", "en-IN"))
 
 
 @app.post("/api/ask_text")
-async def ask_text(question: str = Form(...), language_code: str = Form("")):
-    language_code = language_code or _guess_language(question)
-    timings = {}
-    t = time.time()
-    result = bot.answer(question, language_code)
-    timings["think_ms"] = int((time.time() - t) * 1000)
-    return JSONResponse(_package(result, question, language_code, timings))
+async def ask_text(question: str = Form(""), language_code: str = Form("")):
+    try:
+        if not question.strip():
+            return JSONResponse(_empty_reply(question, language_code or "en-IN"))
+        language_code = language_code or _guess_language(question)
+        result = bot.answer(question, language_code)
+        return JSONResponse(result)
+    except Exception as e:
+        print("ERROR in /api/ask_text:", repr(e))
+        return JSONResponse(_empty_reply(question, "en-IN"))
+
+
+@app.post("/api/speak")
+async def speak(text: str = Form(...), language_code: str = Form("en-IN")):
+    try:
+        t = time.time()
+        wav = sc.speak(text, language_code)
+        return JSONResponse({"audio_base64": base64.b64encode(wav).decode(),
+                             "speak_ms": int((time.time() - t) * 1000)})
+    except Exception as e:
+        print("ERROR in /api/speak:", repr(e))
+        return JSONResponse({"audio_base64": "", "speak_ms": 0})
 
 
 if __name__ == "__main__":
