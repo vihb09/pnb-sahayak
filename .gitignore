@@ -27,3 +27,6 @@ data/hello_sarvam.wav
 data/policies/source_pdfs/
 data/policies/*.txt
 data/policies/_ocr_work/
+
+# ===== User's synthetic sample pack — kept locally, NOT used (we use real docs) =====
+pnb-knowledge-base.md

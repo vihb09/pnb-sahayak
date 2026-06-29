@@ -102,13 +102,18 @@ class KnowledgeBase:
 
 # --- quick self-test: ask a few real questions and show the genuine source ---
 if __name__ == "__main__":
+    import sys
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # clean output on Windows
+
     kb = KnowledgeBase()
     print(f"Loaded {kb.num_documents} documents -> {len(kb.chunks)} searchable passages\n")
 
     questions = [
-        "What schemes are covered under the Staff Welfare Fund?",
         "How often must staff pensioners submit a life certificate?",
-        "What financial assistance is given to the family of an employee who dies in service?",
+        "What documents are required to open a new bank account (KYC)?",
+        "How is a claim settled when an account holder has died?",
+        "How can a customer file a complaint or grievance with the bank?",
+        "What schemes are covered under the Staff Welfare Fund?",
     ]
     for q in questions:
         print("=" * 70)

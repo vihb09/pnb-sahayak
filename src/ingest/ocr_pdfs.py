@@ -71,7 +71,8 @@ def ocr_one_file(pdf_path: Path) -> str:
 
 def main():
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
-    todo = [m for m in manifest if m.get("needs_ocr")]
+    # Skip anything that already has extracted text (don't re-spend OCR credits).
+    todo = [m for m in manifest if m.get("needs_ocr") and not m.get("txt")]
     print(f"Documents needing OCR: {len(todo)}\n")
 
     for m in todo:

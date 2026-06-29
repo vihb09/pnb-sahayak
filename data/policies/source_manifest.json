@@ -15,7 +15,7 @@
     "label": "Staff welfare schemes covered under “Staff Welfare Fund” (For Serving & Retired Employees).",
     "bytes": 442306,
     "pages": 2,
-    "chars": 53135,
+    "chars": 0,
     "needs_ocr": true,
     "txt": "ws-benifit-welfare-fund.txt",
     "ocr": true,
@@ -417,7 +417,7 @@
     "label": "Medical Insurance Scheme as per 10th Bipartite Settlement/Joint Note Dated 25.05.2015 - Retired Officers/Workmen",
     "bytes": 9028740,
     "pages": 26,
-    "chars": 424225,
+    "chars": 2391,
     "needs_ocr": true,
     "txt": "Med_Ins_Sch.txt",
     "ocr": true,
@@ -462,5 +462,115 @@
     "chars": 30689,
     "needs_ocr": false,
     "txt": "Cir-515-2009.txt"
+  },
+  {
+    "pdf": "CODE_OF_BANKS_COMMITMENT_TO_CUSTOMERS_ADOPTED_BY_PNB.pdf",
+    "url": "https://www.pnbindia.in/document/CODE_OF_BANKS_COMMITMENT_TO_CUSTOMERS_ADOPTED_BY_PNB.pdf",
+    "label": "Code of Bank's Commitment to Customers (PNB)",
+    "collection": "pnbindia-public",
+    "bytes": 1095318,
+    "pages": 52,
+    "chars": 110345,
+    "needs_ocr": false,
+    "txt": "CODE_OF_BANKS_COMMITMENT_TO_CUSTOMERS_ADOPTED_BY_PNB.txt"
+  },
+  {
+    "pdf": "Banks_Commitments_Customers.pdf",
+    "url": "https://www.pnbindia.in/document/Banks_Commitments_Customers.pdf",
+    "label": "Bank's Commitments to Customers",
+    "collection": "pnbindia-public",
+    "bytes": 113687,
+    "pages": 24,
+    "chars": 60444,
+    "needs_ocr": false,
+    "txt": "Banks_Commitments_Customers.txt"
+  },
+  {
+    "pdf": "ho_cust_care_customer_rights_policy.pdf",
+    "url": "https://www.pnbindia.in/document/customer-care/ho_cust_care_customer_rights_policy.pdf",
+    "label": "Customer Rights Policy",
+    "collection": "pnbindia-public",
+    "bytes": 51339,
+    "pages": 6,
+    "chars": 15479,
+    "needs_ocr": false,
+    "txt": "ho_cust_care_customer_rights_policy.txt"
+  },
+  {
+    "pdf": "Deceased-Claim-cases.pdf",
+    "url": "https://www.pnbindia.in/document/Deceased-Claim-cases.pdf",
+    "label": "Settlement of claims pertaining to deceased / missing customers",
+    "collection": "pnbindia-public",
+    "bytes": 62842,
+    "pages": 4,
+    "chars": 7725,
+    "needs_ocr": false,
+    "txt": "Deceased-Claim-cases.txt"
+  },
+  {
+    "pdf": "Banking_ombudsman.pdf",
+    "url": "https://www.pnbindia.in/document/Banking_ombudsman.pdf",
+    "label": "RBI Integrated Ombudsman Scheme, 2021 (grievance redressal)",
+    "collection": "pnbindia-public",
+    "bytes": 268056,
+    "pages": 18,
+    "chars": 30727,
+    "needs_ocr": false,
+    "txt": "Banking_ombudsman.txt"
+  },
+  {
+    "pdf": "KYC_AML_Documents_2015.pdf",
+    "url": "https://www.pnbindia.in/document/others/KYC_AML_Documents_2015.pdf",
+    "label": "List of KYC documents required for opening of accounts",
+    "collection": "pnbindia-public",
+    "bytes": 91553,
+    "pages": 3,
+    "chars": 6260,
+    "needs_ocr": false,
+    "txt": "KYC_AML_Documents_2015.txt"
+  },
+  {
+    "pdf": "fi_e-kyc_facility.pdf",
+    "url": "https://www.pnbindia.in/document/fi_e-kyc_facility.pdf",
+    "label": "Process flow for e-KYC and account opening at BC locations & branches",
+    "collection": "pnbindia-public",
+    "bytes": 24735,
+    "pages": 3,
+    "chars": 5825,
+    "needs_ocr": false,
+    "txt": "fi_e-kyc_facility.txt"
+  },
+  {
+    "pdf": "aof_revised.pdf",
+    "url": "https://www.pnbindia.in/document/download-form/aof_revised.pdf",
+    "label": "Account Opening Form (all branches, resident)",
+    "collection": "pnbindia-public",
+    "bytes": 466928,
+    "pages": 8,
+    "chars": 21706,
+    "needs_ocr": false,
+    "txt": "aof_revised.txt"
+  },
+  {
+    "pdf": "FAQ_NRO_RMD.pdf",
+    "url": "https://www.pnbindia.in/document/NRIservices/FAQ_NRO_RMD.pdf",
+    "label": "FAQ on NRO accounts (NRI services)",
+    "collection": "pnbindia-public",
+    "bytes": 76930,
+    "pages": 4,
+    "chars": 7464,
+    "needs_ocr": false,
+    "txt": "FAQ_NRO_RMD.txt"
+  },
+  {
+    "pdf": "Annexure-II_ScheduleofCharges_PNBIBUGIFTCITY.pdf",
+    "url": "https://www.pnbindia.in/pnb-giftcity/download/Annexure-II_ScheduleofCharges_PNBIBUGIFTCITY.pdf",
+    "label": "Schedule of Charges (PNB IFSC Banking Unit, GIFT City)",
+    "collection": "pnbindia-public",
+    "bytes": 903467,
+    "pages": 4,
+    "chars": 7206,
+    "needs_ocr": false,
+    "txt": "Annexure-II_ScheduleofCharges_PNBIBUGIFTCITY.txt"
   }
 ]
