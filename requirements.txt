@@ -1,0 +1,5 @@
+# Python add-on packages this project needs.
+# Install them all with:  py -m pip install -r requirements.txt
+
+requests        # lets our code make web calls to the Sarvam API
+python-dotenv   # reads your secret key from the .env file

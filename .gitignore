@@ -1,0 +1,22 @@
+# ===== Secrets — NEVER commit these =====
+# Your real Sarvam API key lives in .env. This line keeps it off git forever.
+.env
+
+# ===== Python junk =====
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# ===== Tool / editor settings =====
+.claude/
+
+# ===== Windows / OS files =====
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ===== Audio test scratch files (we'll regenerate these anytime) =====
+*.wav.tmp
+data/hello_sarvam.wav
