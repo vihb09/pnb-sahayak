@@ -27,12 +27,12 @@ AUTH = {"api-subscription-key": API_KEY or ""}
 JSON_HEADERS = {**AUTH, "Content-Type": "application/json"}
 
 
-def listen(audio_bytes: bytes, filename: str = "audio.wav") -> dict:
+def listen(audio_bytes: bytes, filename: str = "audio.wav", content_type: str = "audio/wav") -> dict:
     """Saaras speech-to-text. Returns {'transcript', 'language_code'}."""
     r = requests.post(
         f"{BASE_URL}/speech-to-text",
         headers=AUTH,
-        files={"file": (filename, audio_bytes, "audio/wav")},
+        files={"file": (filename, audio_bytes, content_type)},
         data={"model": "saaras:v3"},
         timeout=90,
     )

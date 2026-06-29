@@ -9,3 +9,8 @@ python-dotenv   # reads your secret key from the .env file
 pypdf           # reads the text layer out of PDFs
 sarvamai        # official Sarvam SDK, used for OCR of scanned PDFs (Document Digitization)
 rank_bm25       # simple keyword search over the policy documents
+
+# --- Web app (the voice assistant page + server) ---
+fastapi          # the web framework that runs the server
+uvicorn          # runs the FastAPI app locally
+python-multipart # lets the server receive the uploaded microphone audio
