@@ -90,12 +90,14 @@ class KnowledgeBase:
         ranked = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
         results = []
         for i in ranked[:k]:
+            full_text = " ".join(self.chunks[i]["text"].split())
             results.append({
                 "score": round(float(scores[i]), 2),
                 "pdf": self.chunks[i]["pdf"],
                 "label": self.chunks[i]["label"],
                 "url": self.chunks[i]["url"],
-                "snippet": " ".join(self.chunks[i]["text"].split())[:300],
+                "text": full_text,             # the full passage, for the LLM to read
+                "snippet": full_text[:300],    # a short preview, for the screen
             })
         return results
 
