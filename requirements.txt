@@ -1,5 +1,11 @@
 # Python add-on packages this project needs.
 # Install them all with:  py -m pip install -r requirements.txt
 
-requests        # lets our code make web calls to the Sarvam API
+# --- Live voice pipeline & core ---
+requests        # makes the web calls to the Sarvam API
 python-dotenv   # reads your secret key from the .env file
+
+# --- Knowledge base (real PNB documents) ---
+pypdf           # reads the text layer out of PDFs
+sarvamai        # official Sarvam SDK, used for OCR of scanned PDFs (Document Digitization)
+rank_bm25       # simple keyword search over the policy documents

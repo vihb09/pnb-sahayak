@@ -20,3 +20,10 @@ desktop.ini
 # ===== Audio test scratch files (we'll regenerate these anytime) =====
 *.wav.tmp
 data/hello_sarvam.wav
+
+# ===== Real PNB documents (copyrighted — keep LOCAL, never commit) =====
+# Both the original PDFs and the extracted .txt hold PNB's copyrighted content.
+# The repo stays reproducible via src/ingest/ + data/policies/source_manifest.json.
+data/policies/source_pdfs/
+data/policies/*.txt
+data/policies/_ocr_work/
