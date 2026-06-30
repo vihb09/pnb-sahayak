@@ -30,3 +30,6 @@ data/policies/_ocr_work/
 
 # ===== User's synthetic sample pack — kept locally, NOT used (we use real docs) =====
 pnb-knowledge-base.md
+
+# ===== Runtime logs (regenerated as the app is used) =====
+logs/

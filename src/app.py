@@ -21,6 +21,7 @@ from pathlib import Path
 
 import sarvam_client as sc
 from assistant import Assistant, POLITE
+from interaction_log import log_interaction
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 
@@ -70,6 +71,7 @@ async def ask(audio: UploadFile = File(...)):
 
         result = bot.answer(transcript, heard["language_code"])
         result["timings"]["listen_ms"] = listen_ms
+        log_interaction(result, channel="voice")
         return JSONResponse(result)
     except Exception as e:
         print("ERROR in /api/ask:", repr(e))
@@ -83,6 +85,7 @@ async def ask_text(question: str = Form(""), language_code: str = Form("")):
             return JSONResponse(_empty_reply(question, language_code or "en-IN"))
         language_code = language_code or _guess_language(question)
         result = bot.answer(question, language_code)
+        log_interaction(result, channel="text")
         return JSONResponse(result)
     except Exception as e:
         print("ERROR in /api/ask_text:", repr(e))

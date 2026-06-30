@@ -26,10 +26,11 @@ POLITE = ("I can only help with questions about PNB policies, and I don't have t
 # Tell the LLM to answer in English, briefly, or emit this exact token if not found.
 SYSTEM_PROMPT = (
     "You are PNB Sahayak, an assistant for Punjab National Bank employees. "
-    "Answer the QUESTION using ONLY the CONTEXT, which is from official PNB documents. "
+    "Answer the QUESTION using ONLY the facts in the CONTEXT, which is taken from official "
+    "PNB documents. Never use outside knowledge and never guess. "
     "Reply in ENGLISH, in at most 2 short sentences suitable for reading aloud. "
-    "Do not invent anything not in the context. "
-    "If the context does not contain the answer, reply with exactly: NO_INFO"
+    "Then, on a final separate line, write 'CITED: N' with the single Document number you used. "
+    "If the CONTEXT does not contain the answer, reply with exactly NO_INFO and nothing else."
 )
 
 MIN_SCORE = 4.0          # below this the top match is basically noise
@@ -147,15 +148,26 @@ class Assistant:
         )
         try:
             t = time.time()
-            answer_en = sc.think(SYSTEM_PROMPT, f"CONTEXT:\n{context}\n\nQUESTION: {query_en}",
-                                 max_tokens=200)
+            raw = sc.think(SYSTEM_PROMPT, f"CONTEXT:\n{context}\n\nQUESTION: {query_en}",
+                           max_tokens=220)
             timings["llm_ms"] = int((time.time() - t) * 1000)
         except Exception:
             return self._polite(question, language_code, plan, timings, score=top["score"])
 
-        # --- LLM says it isn't in the documents -> polite, no source.
-        if (not answer_en) or ("NO_INFO" in answer_en.upper()):
+        # --- LLM says it isn't in the documents -> polite, no source (prepare to escalate).
+        if (not raw) or ("NO_INFO" in raw.upper()):
             return self._polite(question, language_code, plan, timings, score=top["score"])
+
+        # --- Pull out which document the LLM actually used, for an accurate citation.
+        cited_idx, kept = None, []
+        for ln in raw.splitlines():
+            m = re.match(r"\s*CITED:\s*#?(\d+)", ln, re.IGNORECASE)
+            if m:
+                cited_idx = int(m.group(1)) - 1
+            else:
+                kept.append(ln)
+        answer_en = "\n".join(kept).strip()
+        cited = hits[cited_idx] if (cited_idx is not None and 0 <= cited_idx < len(hits)) else top
 
         # --- Translate the ONE final answer into the locked language/style.
         answer = answer_en
@@ -172,8 +184,8 @@ class Assistant:
             "transcript": question, "language_code": language_code,
             "style_label": plan["style_label"], "query_en": query_en,
             "answer": answer, "answer_en": answer_en,
-            "source": {"pdf": top["pdf"], "label": top["label"], "url": top["url"]},
-            "confidence": _confidence(top["score"]), "score": top["score"],
+            "source": {"pdf": cited["pdf"], "label": cited["label"], "url": cited["url"]},
+            "confidence": _confidence(cited["score"]), "score": cited["score"],
             "escalate": False,
             "tts_lang": ("en-IN" if plan["is_english"] else plan["tts_lang"]),
             "timings": timings,
