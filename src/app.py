@@ -11,15 +11,19 @@ browser asks for the spoken audio separately so you SEE the answer right away.
 
 Run from the project root:   py src/app.py    ->   http://127.0.0.1:8000
 """
+import asyncio
 import base64
 import json
+import os
 import re
 import time
 from collections import Counter
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 from pathlib import Path
+
+from sarvamai import AsyncSarvamAI
 
 import sarvam_client as sc
 from assistant import Assistant, POLITE_OFFTOPIC
@@ -30,6 +34,8 @@ WEB_DIR = Path(__file__).resolve().parent / "web"
 
 app = FastAPI(title="PNB Sahayak")
 bot = Assistant()   # builds the document search index once, at startup
+# Separate async client just for the optional live-streaming demo (Phase 7).
+_async_sarvam = AsyncSarvamAI(api_subscription_key=os.getenv("SARVAM_API_KEY") or "")
 
 
 def _guess_language(text: str) -> str:
@@ -164,6 +170,68 @@ def stats():
         "recent": recent,
         "escalations": escalations,
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 7 (optional): live real-time streaming demo. Fully separate from the
+# turn-by-turn assistant above — if it hiccups, nothing else is affected.
+# ---------------------------------------------------------------------------
+@app.get("/stream", response_class=HTMLResponse)
+def stream_page():
+    return (WEB_DIR / "stream.html").read_text(encoding="utf-8")
+
+
+@app.websocket("/ws/transcribe")
+async def ws_transcribe(browser: WebSocket):
+    """Relay the browser's microphone PCM to Sarvam's streaming STT and send live
+    transcripts back. The API key stays on the server."""
+    await browser.accept()
+    try:
+        async with _async_sarvam.speech_to_text_streaming.connect(
+            model="saaras:v3", mode="transcribe", language_code="en-IN",
+            input_audio_codec="pcm_s16le", sample_rate="16000", high_vad_sensitivity="true",
+        ) as sarvam_ws:
+
+            async def to_sarvam():
+                try:
+                    while True:
+                        chunk = await browser.receive_bytes()
+                        await sarvam_ws.transcribe(audio=base64.b64encode(chunk).decode())
+                except WebSocketDisconnect:
+                    pass
+                except Exception as e:
+                    print("stream to_sarvam:", repr(e))
+                finally:
+                    try:
+                        await sarvam_ws.flush()
+                    except Exception:
+                        pass
+
+            async def to_browser():
+                try:
+                    async for msg in sarvam_ws:
+                        data = getattr(msg, "data", None)
+                        tr = getattr(data, "transcript", None) if data is not None else None
+                        sig = getattr(data, "signal_type", None) if data is not None else None
+                        if tr:
+                            await browser.send_json({"type": "transcript", "text": tr})
+                        elif sig:
+                            await browser.send_json({"type": "signal", "signal": sig})
+                except Exception as e:
+                    print("stream to_browser:", repr(e))
+
+            t1 = asyncio.create_task(to_sarvam())
+            t2 = asyncio.create_task(to_browser())
+            _done, pending = await asyncio.wait({t1, t2}, return_when=asyncio.FIRST_COMPLETED)
+            for t in pending:
+                t.cancel()
+    except Exception as e:
+        print("ws_transcribe error:", repr(e))
+    finally:
+        try:
+            await browser.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
