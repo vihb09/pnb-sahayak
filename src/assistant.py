@@ -36,7 +36,7 @@ SYSTEM_PROMPT = (
     "Answer the QUESTION using ONLY the facts in the CONTEXT, which is taken from official "
     "PNB documents. Never use outside knowledge and never guess. "
     "Reply in ENGLISH, in 1 to 2 short sentences suitable for reading aloud. "
-    "Then, on a final separate line, write 'CITED: N' with the single Document number you used. "
+    "Then, on a final separate line, write 'CITED: N' with exactly ONE Document number (the single most relevant one). "
     "If the CONTEXT does not contain the answer, reply with exactly NO_INFO and nothing else."
 )
 
@@ -212,7 +212,9 @@ class Assistant:
         # wherever it appears — the model sometimes writes it inline, not on its own line.
         m = re.search(r"CITED:\s*#?(\d+)", raw, re.IGNORECASE)
         cited_idx = (int(m.group(1)) - 1) if m else None
-        answer_en = re.sub(r"CITED:\s*#?\d+", "", raw, flags=re.IGNORECASE).strip()
+        # Remove the citation tag and anything after it (the model sometimes appends extra
+        # document numbers like "CITED: 4, 6"), so nothing leaks into the spoken answer.
+        answer_en = re.sub(r"\s*CITED\s*:.*$", "", raw, flags=re.IGNORECASE | re.DOTALL).strip()
         cited = hits[cited_idx] if (cited_idx is not None and 0 <= cited_idx < len(hits)) else top
 
         t = time.time()
