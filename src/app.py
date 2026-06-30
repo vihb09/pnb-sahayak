@@ -12,8 +12,10 @@ browser asks for the spoken audio separately so you SEE the answer right away.
 Run from the project root:   py src/app.py    ->   http://127.0.0.1:8000
 """
 import base64
+import json
 import re
 import time
+from collections import Counter
 
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -21,7 +23,7 @@ from pathlib import Path
 
 import sarvam_client as sc
 from assistant import Assistant, POLITE_OFFTOPIC
-from interaction_log import log_interaction
+from interaction_log import log_interaction, LOG_FILE
 from escalation import send_escalation
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
@@ -110,6 +112,58 @@ async def speak(text: str = Form(...), language_code: str = Form("en-IN")):
     except Exception as e:
         print("ERROR in /api/speak:", repr(e))
         return JSONResponse({"audio_base64": "", "speak_ms": 0})
+
+
+def _read_log():
+    records = []
+    if LOG_FILE.exists():
+        for line in LOG_FILE.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                records.append(json.loads(line))
+            except Exception:
+                pass
+    return records
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard():
+    return (WEB_DIR / "dashboard.html").read_text(encoding="utf-8")
+
+
+@app.get("/api/stats")
+def stats():
+    recs = _read_log()
+    total = len(recs)
+    answered = sum(1 for r in recs if r.get("answered"))
+    escalated = sum(1 for r in recs if r.get("escalated"))
+    langs = Counter((r.get("style") or r.get("language_code") or "—") for r in recs)
+    conf = Counter((r.get("confidence") or "—") for r in recs if r.get("answered"))
+    chan = Counter((r.get("channel") or "—") for r in recs)
+
+    def pick(r, keys):
+        return {k: r.get(k) for k in keys}
+
+    keys = ("ts", "question", "style", "language_code", "confidence", "source_pdf",
+            "escalated", "ticket_id")
+    recent = [pick(r, keys) for r in recs[-12:]][::-1]
+    escalations = [pick(r, ("ts", "question", "style", "ticket_id"))
+                   for r in recs if r.get("escalated")][::-1][:12]
+
+    return {
+        "total": total,
+        "answered": answered,
+        "escalated": escalated,
+        "answer_rate": round(100 * answered / total) if total else 0,
+        "by_confidence": {k: conf.get(k, 0) for k in ("High", "Medium", "Low")},
+        "by_language": sorted(({"name": k, "count": v} for k, v in langs.items()),
+                              key=lambda x: -x["count"]),
+        "by_channel": {"voice": chan.get("voice", 0), "text": chan.get("text", 0)},
+        "recent": recent,
+        "escalations": escalations,
+    }
 
 
 if __name__ == "__main__":
