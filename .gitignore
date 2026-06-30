@@ -33,3 +33,6 @@ pnb-knowledge-base.md
 
 # ===== Runtime logs (regenerated as the app is used) =====
 logs/
+
+# ===== Post-call analytics: generated call audio + reports =====
+data/calls/
