@@ -45,22 +45,25 @@ def listen(audio_bytes: bytes, filename: str = "audio.wav", content_type: str = 
 
 
 def translate(text: str, target_language_code: str, source_language_code: str = "auto",
-              mode: str | None = None, output_script: str | None = None) -> str:
-    """Mayura translation. 'auto' source lets Sarvam detect the input language.
-    mode (e.g. 'code-mixed') and output_script (e.g. 'roman') shape the style —
-    used to keep Hinglish answers in a consistent Hinglish style."""
+              model: str = "mayura:v1", mode: str | None = None,
+              output_script: str | None = None) -> str:
+    """Translate text. model 'mayura:v1' covers 11 languages and supports style
+    (mode/output_script, e.g. code-mixed + roman for Hinglish); 'sarvam-translate:v1'
+    covers the wider 22-language set (no style options)."""
     if not text.strip():
         return text
+    is_mayura = model.startswith("mayura")
     body = {
-        "input": text[:1000],  # mayura:v1 limit
+        "input": text[:(1000 if is_mayura else 2000)],
         "source_language_code": source_language_code,
         "target_language_code": target_language_code,
-        "model": "mayura:v1",
+        "model": model,
     }
-    if mode:
-        body["mode"] = mode
-    if output_script:
-        body["output_script"] = output_script
+    if is_mayura:
+        if mode:
+            body["mode"] = mode
+        if output_script:
+            body["output_script"] = output_script
     r = requests.post(f"{BASE_URL}/translate", headers=JSON_HEADERS, json=body, timeout=45)
     r.raise_for_status()
     return (r.json().get("translated_text") or text).strip()

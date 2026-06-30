@@ -92,7 +92,7 @@
       <div class="label">Source document (genuine PNB file)</div>
       <div class="value" id="source"></div>
     </div>
-    <div class="row">
+    <div class="row" id="confidence-row">
       <div class="label">Confidence</div>
       <div class="value"><span class="badge" id="confidence"></span></div>
     </div>
@@ -131,6 +131,7 @@ let audioCtx = null, mediaStream = null, srcNode = null, procNode = null, pcmChu
 async function startRecording() {
   mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') { try { await audioCtx.resume(); } catch (e) {} }
   capRate = audioCtx.sampleRate;
   srcNode = audioCtx.createMediaStreamSource(mediaStream);
   procNode = audioCtx.createScriptProcessor(4096, 1, 1);
@@ -176,17 +177,28 @@ function encodeWav16(samples) {
 }
 window.__encodeWav16 = encodeWav16; window.__downsampleTo16k = downsampleTo16k;  // for self-testing
 
+let recTimer = null;
+
+function stopRecordingAndSend() {
+  if (!recording) return;
+  recording = false;
+  micBtn.classList.remove('recording');
+  if (recTimer) { clearTimeout(recTimer); recTimer = null; }
+  setBusy('Transcribing your question and searching the documents…');
+  let blob;
+  try { blob = stopRecordingToWav(); }
+  catch (e) { hint.textContent = '⚠️ Recording error. Please try again.'; return; }
+  sendAudio(blob);
+}
+
 micBtn.addEventListener('click', async () => {
-  if (recording) {
-    recording = false; micBtn.classList.remove('recording');
-    setBusy('Transcribing your question and searching the documents…');
-    let blob; try { blob = stopRecordingToWav(); } catch (e) { hint.textContent = '⚠️ Recording error. Please try again.'; return; }
-    sendAudio(blob); return;
-  }
+  if (recording) { stopRecordingAndSend(); return; }
   try {
     await startRecording();
-    recording = true; micBtn.classList.add('recording');
-    hint.textContent = '🔴 Listening… click again to stop';
+    recording = true;
+    micBtn.classList.add('recording');
+    hint.textContent = '🔴 Listening… speak now, then click again to stop';
+    recTimer = setTimeout(stopRecordingAndSend, 20000);   // safety auto-stop after 20s
   } catch (err) {
     if (err && err.name === 'NotAllowedError')
       hint.textContent = '⚠️ Microphone blocked. Click the lock/🎤 icon in the address bar, allow the mic, then try again — or type your question.';
@@ -233,14 +245,17 @@ function renderText(d) {
   if (d.source) {
     srcEl.innerHTML = `<a class="source" href="${d.source.url}" target="_blank" rel="noopener">${esc(d.source.label || d.source.pdf)}</a>
       <div class="src-file">file: ${esc(d.source.pdf)}</div>`;
-  } else if (d.escalate) {
+  } else if (d.kind === 'escalate' || d.escalate) {
     srcEl.innerHTML = `<span class="nosrc">⚠️ No matching document — flagged to the policy team${d.ticket_id ? ' · ticket <b>' + esc(d.ticket_id) + '</b>' : ''}.</span>`;
+  } else if (d.kind === 'capability') {
+    srcEl.innerHTML = `<span class="nosrc">ℹ️ Overview of the topics I can help with.</span>`;
   } else {
     srcEl.innerHTML = `<span class="nosrc">Not a PNB policy question.</span>`;
   }
 
   const conf = document.getElementById('confidence');
   conf.textContent = d.confidence || '—'; conf.className = 'badge ' + (d.confidence || '');
+  document.getElementById('confidence-row').style.display = (d.kind === 'capability') ? 'none' : '';
 
   document.getElementById('answer').textContent = d.answer || '';
   const aen = document.getElementById('answer-en');
@@ -271,6 +286,7 @@ function drawTimings() {
 
 async function speakAnswer(d) {
   if (!d.answer) return;
+  if (!d.tts_lang) { voiceStatus.textContent = 'ℹ️ Spoken answer isn\'t available for this language yet — showing text only.'; return; }
   voiceStatus.textContent = '🔊 preparing the spoken answer…';
   const fd = new FormData(); fd.append('text', d.answer); fd.append('language_code', d.tts_lang || 'en-IN');
   try {

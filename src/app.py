@@ -38,8 +38,8 @@ def _empty_reply(transcript: str, language_code: str) -> dict:
     return {
         "transcript": transcript, "language_code": language_code, "style_label": "—",
         "query_en": "", "answer": POLITE_OFFTOPIC, "answer_en": POLITE_OFFTOPIC, "source": None,
-        "confidence": "Low", "score": 0.0, "escalate": False, "tts_lang": "en-IN",
-        "timings": {},
+        "confidence": "Low", "score": 0.0, "escalate": False, "kind": "offtopic",
+        "tts_lang": "en-IN", "timings": {},
     }
 
 

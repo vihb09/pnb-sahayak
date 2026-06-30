@@ -12,6 +12,7 @@ Nothing here ever raises — escalation must not break the assistant.
 import json
 import os
 import secrets
+import threading
 import time
 from pathlib import Path
 
@@ -51,13 +52,15 @@ def send_escalation(result: dict, channel: str) -> dict:
     except Exception:
         pass
 
-    # 2) n8n webhook (only if configured)
+    # 2) n8n webhook (only if configured) — fire in a background thread so the
+    #    user's reply is never delayed by the webhook round-trip.
     url = os.getenv("N8N_WEBHOOK_URL")
     if url:
-        try:
-            requests.post(url, json=ticket, timeout=5)
-            ticket["sent_to_n8n"] = True
-        except Exception:
-            ticket["sent_to_n8n"] = False
+        def _post():
+            try:
+                requests.post(url, json=ticket, timeout=10)
+            except Exception:
+                pass
+        threading.Thread(target=_post, daemon=True).start()
 
     return ticket
