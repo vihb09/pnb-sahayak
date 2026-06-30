@@ -188,7 +188,7 @@ async def ws_transcribe(browser: WebSocket):
     await browser.accept()
     try:
         async with _async_sarvam.speech_to_text_streaming.connect(
-            model="saaras:v3", mode="transcribe", language_code="en-IN",
+            model="saaras:v3", mode="transcribe", language_code="unknown",  # auto-detect any language
             input_audio_codec="pcm_s16le", sample_rate="16000", high_vad_sensitivity="true",
         ) as sarvam_ws:
 
