@@ -20,8 +20,9 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pathlib import Path
 
 import sarvam_client as sc
-from assistant import Assistant, POLITE
+from assistant import Assistant, POLITE_OFFTOPIC
 from interaction_log import log_interaction
+from escalation import send_escalation
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 
@@ -36,10 +37,19 @@ def _guess_language(text: str) -> str:
 def _empty_reply(transcript: str, language_code: str) -> dict:
     return {
         "transcript": transcript, "language_code": language_code, "style_label": "—",
-        "query_en": "", "answer": POLITE, "answer_en": POLITE, "source": None,
-        "confidence": "Low", "score": 0.0, "escalate": True, "tts_lang": "en-IN",
+        "query_en": "", "answer": POLITE_OFFTOPIC, "answer_en": POLITE_OFFTOPIC, "source": None,
+        "confidence": "Low", "score": 0.0, "escalate": False, "tts_lang": "en-IN",
         "timings": {},
     }
+
+
+def _finalize(result: dict, channel: str) -> dict:
+    """Create a ticket if escalating, then log the interaction."""
+    if result.get("escalate"):
+        ticket = send_escalation(result, channel)
+        result["ticket_id"] = ticket["ticket_id"]
+    log_interaction(result, channel)
+    return result
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -71,8 +81,7 @@ async def ask(audio: UploadFile = File(...)):
 
         result = bot.answer(transcript, heard["language_code"])
         result["timings"]["listen_ms"] = listen_ms
-        log_interaction(result, channel="voice")
-        return JSONResponse(result)
+        return JSONResponse(_finalize(result, "voice"))
     except Exception as e:
         print("ERROR in /api/ask:", repr(e))
         return JSONResponse(_empty_reply("", "en-IN"))
@@ -85,8 +94,7 @@ async def ask_text(question: str = Form(""), language_code: str = Form("")):
             return JSONResponse(_empty_reply(question, language_code or "en-IN"))
         language_code = language_code or _guess_language(question)
         result = bot.answer(question, language_code)
-        log_interaction(result, channel="text")
-        return JSONResponse(result)
+        return JSONResponse(_finalize(result, "text"))
     except Exception as e:
         print("ERROR in /api/ask_text:", repr(e))
         return JSONResponse(_empty_reply(question, "en-IN"))

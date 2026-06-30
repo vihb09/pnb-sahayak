@@ -233,8 +233,10 @@ function renderText(d) {
   if (d.source) {
     srcEl.innerHTML = `<a class="source" href="${d.source.url}" target="_blank" rel="noopener">${esc(d.source.label || d.source.pdf)}</a>
       <div class="src-file">file: ${esc(d.source.pdf)}</div>`;
+  } else if (d.escalate) {
+    srcEl.innerHTML = `<span class="nosrc">⚠️ No matching document — flagged to the policy team${d.ticket_id ? ' · ticket <b>' + esc(d.ticket_id) + '</b>' : ''}.</span>`;
   } else {
-    srcEl.innerHTML = `<span class="nosrc">No confident match — flagged for the policy team.</span>`;
+    srcEl.innerHTML = `<span class="nosrc">Not a PNB policy question.</span>`;
   }
 
   const conf = document.getElementById('confidence');

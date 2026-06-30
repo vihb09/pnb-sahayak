@@ -28,8 +28,9 @@ def log_interaction(result: dict, channel: str) -> None:
             "score": result.get("score"),
             "source_pdf": source.get("pdf"),
             "source_url": source.get("url"),
-            "answered": not result.get("escalate", False),
+            "answered": bool(source.get("pdf")),   # a real answer always has a source
             "escalated": bool(result.get("escalate", False)),
+            "ticket_id": result.get("ticket_id"),
         }
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")

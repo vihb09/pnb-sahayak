@@ -5,25 +5,27 @@ Flow (every external call is wrapped so this NEVER crashes the request):
 
   question + detected language
     -> decide ONE reply language/style (locked for the whole answer)
-    -> relevance gate: greetings / off-topic / no-match -> polite reply, NO LLM call
-    -> translate to English (only if needed)             [Mayura]
-    -> search the real PNB documents                      [BM25]
-    -> LLM answers in ENGLISH, grounded, 2 short sentences [sarvam-30b]
+    -> relevance gate: greetings / off-topic -> polite reply, NO LLM, NO ticket
+    -> translate to English (only if needed)              [Mayura]
+    -> search the real PNB documents                       [BM25]
+    -> a genuine question with no match -> escalate (ticket) instead of guessing
+    -> LLM answers in ENGLISH, grounded, 2 sentences, and names the document it used [sarvam-30b]
     -> translate the ONE final answer into the locked language/style [Mayura]
-    -> return answer + genuine source + confidence + per-stage timings
+    -> return answer + the GENUINE cited source + confidence + timings + escalate flag
 """
-import math
 import re
 import time
 
 from knowledge_base import KnowledgeBase
 import sarvam_client as sc
 
-# The single polite reply for greetings / small talk / off-topic / no match.
-POLITE = ("I can only help with questions about PNB policies, and I don't have that "
-          "in my documents — I'll flag it for the team.")
+# Off-topic / greeting -> polite, NO ticket.
+POLITE_OFFTOPIC = ("I can only help with questions about PNB policies — please ask "
+                   "about a policy, procedure, or circular.")
+# A genuine policy question we could not answer -> polite + escalate to the team.
+POLITE_ESCALATE = ("I couldn't find this in the PNB policy documents, so I've flagged "
+                   "it for the policy team to follow up.")
 
-# Tell the LLM to answer in English, briefly, or emit this exact token if not found.
 SYSTEM_PROMPT = (
     "You are PNB Sahayak, an assistant for Punjab National Bank employees. "
     "Answer the QUESTION using ONLY the facts in the CONTEXT, which is taken from official "
@@ -40,6 +42,9 @@ STOPWORDS = {
     "this", "that", "these", "those", "with", "about", "from", "into", "tell", "give",
     "need", "want", "please", "there", "here", "have", "has", "had", "any", "get",
 }
+_HINGLISH_WORDS = {"kab", "hai", "kya", "kaise", "kyun", "kyon", "nahi", "mujhe", "batao",
+                   "chahiye", "kitna", "kitni", "karna", "krna", "mera", "meri", "hota",
+                   "hoti", "jama", "milega", "kaun", "konsa", "kitne", "sakta", "sakti"}
 
 
 def _tokenize(text):
@@ -54,34 +59,22 @@ def _confidence(score):
     return "High" if score >= 12 else ("Medium" if score >= 6 else "Low")
 
 
-# Romanized-Hindi / Hinglish marker words (helps spot Hinglish typed/spoken as Latin text).
-_HINGLISH_WORDS = {"kab", "hai", "kya", "kaise", "kyun", "kyon", "nahi", "mujhe", "batao",
-                   "chahiye", "kitna", "kitni", "karna", "krna", "mera", "meri", "hota",
-                   "hoti", "jama", "milega", "kaun", "konsa", "kitne", "sakta", "sakti"}
-
-
 def decide_reply(transcript, language_code):
-    """Pick ONE language + style for the whole reply. Returns dict with:
-    is_english, tts_lang, style_label, mode, output_script."""
+    """Pick ONE language + style for the whole reply (so it never switches mid-answer)."""
     base = (language_code or "en-IN").split("-")[0].lower()
     has_devanagari = bool(re.search(r"[ऀ-ॿ]", transcript or ""))
     lower = (transcript or "").lower()
     hinglish_markers = any(re.search(rf"\b{w}\b", lower) for w in _HINGLISH_WORDS)
 
-    # English input with no Hindi markers -> answer in English.
     if base == "en" and not hinglish_markers:
         return {"is_english": True, "tts_lang": "en-IN", "style_label": "English",
                 "mode": None, "output_script": None}
-
-    # Hindi / Hinglish.
-    if base in ("hi", "en"):  # 'en' here only reached when hinglish_markers is True
+    if base in ("hi", "en"):
         if has_devanagari:
             return {"is_english": False, "tts_lang": "hi-IN", "style_label": "Hindi",
                     "mode": "modern-colloquial", "output_script": "fully-native"}
         return {"is_english": False, "tts_lang": "hi-IN", "style_label": "Hinglish",
                 "mode": "code-mixed", "output_script": "roman"}
-
-    # Any other Indian language -> answer natively in that language.
     return {"is_english": False, "tts_lang": language_code, "style_label": language_code,
             "mode": "modern-colloquial", "output_script": "fully-native"}
 
@@ -90,13 +83,14 @@ class Assistant:
     def __init__(self):
         self.kb = KnowledgeBase()
 
-    def _polite(self, transcript, language_code, plan, timings, score=0.0):
+    def _polite(self, transcript, language_code, plan, timings, score=0.0, escalate=True):
+        msg = POLITE_ESCALATE if escalate else POLITE_OFFTOPIC
         return {
             "transcript": transcript, "language_code": language_code,
             "style_label": plan["style_label"], "query_en": "",
-            "answer": POLITE, "answer_en": POLITE,
+            "answer": msg, "answer_en": msg,
             "source": None, "confidence": "Low", "score": score,
-            "escalate": True, "tts_lang": "en-IN",  # polite text is English
+            "escalate": escalate, "tts_lang": "en-IN",   # polite text is English
             "timings": timings,
         }
 
@@ -104,13 +98,11 @@ class Assistant:
         timings = {}
         plan = decide_reply(question, language_code)
 
-        # --- Relevance gate #1: no real words (greeting / emoji / blank) -> polite, no LLM.
-        terms = _content_terms(question if plan["is_english"] else "")
-        # For non-English we gate after translating to English (below); for English, gate now.
-        if plan["is_english"] and not terms:
-            return self._polite(question, language_code, plan, timings)
+        # Gate #1: no real words (greeting / emoji / blank) -> polite, NO ticket.
+        if plan["is_english"] and not _content_terms(question):
+            return self._polite(question, language_code, plan, timings, escalate=False)
 
-        # --- Translate the question to English for searching (only if needed).
+        # Translate the question to English for searching (only if needed).
         try:
             if plan["is_english"]:
                 query_en = question
@@ -119,46 +111,43 @@ class Assistant:
                 query_en = sc.translate(question, "en-IN")
                 timings["translate_in_ms"] = int((time.time() - t) * 1000)
         except Exception:
-            return self._polite(question, language_code, plan, timings)
+            return self._polite(question, language_code, plan, timings, escalate=False)
 
         if not _content_terms(query_en):
-            return self._polite(question, language_code, plan, timings)
+            return self._polite(question, language_code, plan, timings, escalate=False)
 
-        # --- Search the real documents.
+        # Search the real documents.
         t = time.time()
         hits = self.kb.search(query_en, k=k)
         timings["search_ms"] = int((time.time() - t) * 1000)
         top = hits[0] if hits else None
 
-        # --- Relevance gate #2: is the top passage actually about the question?
+        # Gate #2: a genuine question with no relevant passage -> escalate (ticket), don't guess.
         content = set(_content_terms(query_en))
-        present = 0
-        if top:
-            passage_tokens = set(_tokenize(top["text"]))
-            present = len(content & passage_tokens)
+        present = len(content & set(_tokenize(top["text"]))) if top else 0
         need = 2 if len(content) >= 4 else 1
         if not top or top["score"] < MIN_SCORE or present < need:
             return self._polite(question, language_code, plan, timings,
-                                score=(top["score"] if top else 0.0))
+                                score=(top["score"] if top else 0.0), escalate=True)
 
-        # --- Ask the LLM (grounded, English, brief). Wrapped so it never crashes.
+        # Ask the LLM (grounded, English, brief, names the document it used).
         context = "\n\n".join(
             f"[Document {i + 1}: {h['label'] or h['pdf']}]\n{h['text']}"
             for i, h in enumerate(hits)
         )
         try:
             t = time.time()
-            raw = sc.think(SYSTEM_PROMPT, f"CONTEXT:\n{context}\n\nQUESTION: {query_en}",
-                           max_tokens=220)
+            raw = sc.think(SYSTEM_PROMPT, f"CONTEXT:\n{context}\n\nQUESTION: {query_en}", max_tokens=220)
             timings["llm_ms"] = int((time.time() - t) * 1000)
         except Exception:
-            return self._polite(question, language_code, plan, timings, score=top["score"])
+            # transient service error (not a policy gap) -> polite, no ticket.
+            return self._polite(question, language_code, plan, timings, score=top["score"], escalate=False)
 
-        # --- LLM says it isn't in the documents -> polite, no source (prepare to escalate).
+        # LLM says it isn't in the documents -> escalate (genuine gap).
         if (not raw) or ("NO_INFO" in raw.upper()):
-            return self._polite(question, language_code, plan, timings, score=top["score"])
+            return self._polite(question, language_code, plan, timings, score=top["score"], escalate=True)
 
-        # --- Pull out which document the LLM actually used, for an accurate citation.
+        # Pull out which document the LLM actually used, for an accurate citation.
         cited_idx, kept = None, []
         for ln in raw.splitlines():
             m = re.match(r"\s*CITED:\s*#?(\d+)", ln, re.IGNORECASE)
@@ -169,7 +158,7 @@ class Assistant:
         answer_en = "\n".join(kept).strip()
         cited = hits[cited_idx] if (cited_idx is not None and 0 <= cited_idx < len(hits)) else top
 
-        # --- Translate the ONE final answer into the locked language/style.
+        # Translate the ONE final answer into the locked language/style.
         answer = answer_en
         if not plan["is_english"]:
             try:
@@ -178,7 +167,7 @@ class Assistant:
                                       mode=plan["mode"], output_script=plan["output_script"])
                 timings["translate_out_ms"] = int((time.time() - t) * 1000)
             except Exception:
-                answer = answer_en  # fall back to English rather than fail
+                answer = answer_en
 
         return {
             "transcript": question, "language_code": language_code,
@@ -192,26 +181,13 @@ class Assistant:
         }
 
 
-# --- end-to-end test with typed questions ---
 if __name__ == "__main__":
     import sys
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-
     bot = Assistant()
-    tests = [
-        ("hi", "en-IN"),
-        ("What is the weather in Mumbai today?", "en-IN"),
-        ("How often must staff pensioners submit a life certificate?", "en-IN"),
-        ("pension life certificate kab jama karna hai?", "hi-IN"),       # Hinglish
-        ("मृत खाताधारक का दावा कैसे निपटाया जाता है?", "hi-IN"),          # Hindi
-    ]
-    for q, lang in tests:
-        print("=" * 72)
-        print(f"Q ({lang}): {q}")
+    for q, lang in [("hi", "en-IN"),
+                    ("What is the current RBI repo rate?", "en-IN"),
+                    ("How often must staff pensioners submit a life certificate?", "en-IN")]:
         r = bot.answer(q, lang)
-        print(f"  style    : {r['style_label']}   confidence: {r['confidence']}   escalate: {r['escalate']}")
-        print(f"  answer   : {r['answer']}")
-        if r["source"]:
-            print(f"  source   : {r['source']['pdf']}")
-        print(f"  timings  : {r['timings']}")
-        print()
+        print(f"Q: {q}\n  escalate={r['escalate']} conf={r['confidence']} "
+              f"source={(r['source'] or {}).get('pdf')}\n  answer={r['answer'][:120]}\n")
