@@ -14,3 +14,7 @@ rank_bm25       # simple keyword search over the policy documents
 fastapi          # the web framework that runs the server
 uvicorn          # runs the FastAPI app locally
 python-multipart # lets the server receive the uploaded microphone audio
+
+# --- Post-call analytics & live streaming ---
+numpy            # resamples audio to 16 kHz for analytics/streaming
+websockets       # real-time streaming WebSocket (also used by the Sarvam SDK)
