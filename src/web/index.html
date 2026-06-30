@@ -129,7 +129,9 @@ fetch('/api/info').then(r => r.json()).then(d => {
 let audioCtx = null, mediaStream = null, srcNode = null, procNode = null, pcmChunks = [], capRate = 48000, recording = false;
 
 async function startRecording() {
-  mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  mediaStream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+  });
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === 'suspended') { try { await audioCtx.resume(); } catch (e) {} }
   capRate = audioCtx.sampleRate;
