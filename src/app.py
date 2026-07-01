@@ -133,22 +133,36 @@ async def email(to: str = Form(...), text: str = Form(...), question: str = Form
     """Email an answer, translated into the chosen language. Sends via SMTP if
     configured, otherwise returns a mailto link for the browser to open."""
     try:
-        body_answer = text
-        if not (language_code or "en").lower().startswith("en"):
-            try:
-                model = "mayura:v1" if language_code in VOICE_LANGS else "sarvam-translate:v1"
-                body_answer = sc.translate(text, language_code, source_language_code="en-IN", model=model)
-            except Exception:
-                body_answer = text
-        subject = "PNB Sahayak — Policy answer"
-        parts = []
+        # Assemble the full English email first, then translate the WHOLE thing so the
+        # subject AND body share one language. (The source URL is added afterwards,
+        # untranslated, so the link stays intact.)
+        en_lines = []
         if question:
-            parts.append(f"Question: {question}\n")
-        parts.append(body_answer)
+            en_lines.append(f"Question: {question}")
+        en_lines.append(text)
         if source_label:
-            parts.append(f"\nSource: {source_label}" + (f"\n{source_url}" if source_url else ""))
-        parts.append("\n—\nSent via PNB Sahayak. Answers are grounded in official PNB documents.")
-        body = "\n".join(parts)
+            en_lines.append(f"Source: {source_label}")
+        en_lines.append("Sent via PNB Sahayak. Answers are grounded in official PNB documents.")
+        en_body = "\n\n".join(en_lines)
+        subject_phrase = "Answer to your question"
+
+        if (language_code or "en").lower().startswith("en"):
+            body = en_body
+            subject = f"PNB Sahayak — {subject_phrase}"
+        else:
+            model = "mayura:v1" if language_code in VOICE_LANGS else "sarvam-translate:v1"
+            try:
+                body = sc.translate(en_body, language_code, source_language_code="en-IN", model=model)
+            except Exception:
+                body = en_body
+            try:
+                subj_local = sc.translate(subject_phrase, language_code, source_language_code="en-IN", model=model)
+            except Exception:
+                subj_local = subject_phrase
+            subject = f"PNB Sahayak — {subj_local}"
+
+        if source_url:
+            body = body + "\n" + source_url
 
         ok, info = send_email(to, subject, body)
         resp = {"sent": ok, "info": info}
