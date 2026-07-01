@@ -34,6 +34,12 @@ certificate kab jama karna hai?"*
 language and the English documents, and the answer comes back in the **same language** —
 text and voice stay consistent, no switching."
 
+## 1:35 — Detailed answers & email in any language (~40s)
+**DO:** Above the input, tap **Detailed**, then ask a policy question — the reply is now a fuller, multi-point answer (still only from the documents).
+**SAY:** "Employees can choose a concise answer or a detailed one."
+**DO:** On any answer, click **✉️ Email this answer**, type a **recipient** (a customer or a colleague — any address), choose a **language**, and Send.
+**SAY:** "The answer is translated into the chosen language and emailed directly to anyone — a customer or a peer — from the assistant's own mailbox. The employee never types any password."
+
 ## 1:50 — It doesn't guess; it escalates (~45s)
 **DO:** Ask something not in the documents, e.g. *"What is the current gold loan interest
 rate?"*

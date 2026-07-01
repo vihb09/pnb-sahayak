@@ -200,7 +200,7 @@ function render(card,d){
   const emailBox=(d.kind==='answer')?`<div class="emailbox">
       <button class="ebtn" data-act="etoggle">✉️ Email this answer</button>
       <div class="eform">
-        <input class="eto" type="email" placeholder="recipient@email.com"/>
+        <input class="eto" type="email" placeholder="Send to any email — customer, colleague…"/>
         <select class="elang" title="Email language">${EMAIL_LANGS.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('')}</select>
         <button class="esend" data-act="esend">Send</button>
         <span class="estatus"></span>
