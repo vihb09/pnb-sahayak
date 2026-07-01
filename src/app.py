@@ -21,7 +21,7 @@ import urllib.parse
 from collections import Counter
 
 from fastapi import FastAPI, File, Form, UploadFile, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pathlib import Path
 
 from sarvamai import AsyncSarvamAI
@@ -225,6 +225,62 @@ def stats():
         "recent": recent,
         "escalations": escalations,
     }
+
+
+# ---------------------------------------------------------------------------
+# Post-call analytics (offline): shows the diarised transcript, speaking time,
+# and the LLM summary produced by src/call_analytics.py — read-only, so it can
+# never affect the live voice pipeline.
+# ---------------------------------------------------------------------------
+CALL_REPORT = Path(__file__).resolve().parent.parent / "data" / "calls" / "sample_call_report.md"
+CALL_AUDIO = Path(__file__).resolve().parent.parent / "data" / "calls" / "sample_call.wav"
+
+
+@app.get("/analytics", response_class=HTMLResponse)
+def analytics_page():
+    return (WEB_DIR / "analytics.html").read_text(encoding="utf-8")
+
+
+@app.get("/api/call_report")
+def call_report():
+    """Parse the offline post-call analytics report into structured JSON."""
+    if not CALL_REPORT.exists():
+        return {"available": False}
+    try:
+        text = CALL_REPORT.read_text(encoding="utf-8")
+        m = re.search(r"^#\s*Post-call analysis\s*[—-]\s*(.+)$", text, re.M)
+        audio = m.group(1).strip() if m else "call"
+        entries = []
+        tb = re.search(r"## Diarised transcript\s*```(.*?)```", text, re.S)
+        if tb:
+            for line in tb.group(1).strip().splitlines():
+                mm = re.match(r"\[([\d.]+)-([\d.]+)s\]\s*Speaker\s*(\S+):\s*(.*)", line.strip())
+                if mm:
+                    entries.append({"start": float(mm.group(1)), "end": float(mm.group(2)),
+                                    "speaker": mm.group(3), "text": mm.group(4)})
+                elif line.strip():
+                    entries.append({"start": None, "end": None, "speaker": "?", "text": line.strip()})
+        talk = []
+        ts = re.search(r"## Speaking time\s*(.*?)(?:\n##|\Z)", text, re.S)
+        if ts:
+            for line in ts.group(1).splitlines():
+                mm = re.match(r"-\s*Speaker\s*(\S+):\s*([\d.]+)\s*s", line.strip())
+                if mm:
+                    talk.append({"speaker": mm.group(1), "secs": float(mm.group(2))})
+        sm = re.search(r"## Summary\s*(.*)\Z", text, re.S)
+        summary = sm.group(1).strip() if sm else ""
+        return {"available": True, "audio": audio, "audio_available": CALL_AUDIO.exists(),
+                "entries": entries, "talk": talk, "summary": summary}
+    except Exception as e:
+        print("ERROR in /api/call_report:", repr(e))
+        return {"available": False}
+
+
+@app.get("/api/call_audio")
+def call_audio():
+    if CALL_AUDIO.exists():
+        return Response(content=CALL_AUDIO.read_bytes(), media_type="audio/wav")
+    return JSONResponse({"error": "no audio"}, status_code=404)
 
 
 # ---------------------------------------------------------------------------
