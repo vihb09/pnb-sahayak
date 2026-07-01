@@ -16,6 +16,7 @@ env/
 Thumbs.db
 desktop.ini
 .DS_Store
+~$*
 
 # ===== Audio test scratch files (we'll regenerate these anytime) =====
 *.wav.tmp
