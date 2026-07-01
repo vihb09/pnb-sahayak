@@ -1,15 +1,14 @@
 """
 assistant.py  -  the "answer brain".
 
-  question + detected language
-    -> decide ONE reply language/style (locked for the whole answer)
-    -> greeting/off-topic       -> polite, NO LLM, NO ticket
-    -> "what can you help with?" -> a friendly list of the topics it covers
-    -> translate to English (if needed), search the real PNB docs
-    -> genuine question, no match -> escalate (ticket) instead of guessing
-    -> LLM answers in ENGLISH, grounded, 1-2 sentences, names the doc it used
-    -> translate the ONE final answer into the locked language/style
-    -> return answer + genuine source + confidence + timings + flags
+Order of checks (each returns early, so greetings/meta never hit the LLM):
+  1. greeting / small talk        -> friendly reply, NO ticket
+  2. "about you" / capability     -> overview, NO ticket
+  3. no real words                -> polite off-topic, NO ticket
+  4. translate to English, search the real PNB docs
+  5. nothing relevant (low score) -> polite off-topic, NO ticket
+  6. LLM answers ONLY from context; if it can't -> escalate (ticket), never guess
+  7. real answer -> translate to the locked language + cite the genuine source
 
 Every external call is wrapped so this NEVER crashes the request.
 """
@@ -23,51 +22,68 @@ POLITE_OFFTOPIC = ("I can only help with questions about PNB policies — please
                    "about a policy, procedure, or circular.")
 POLITE_ESCALATE = ("I couldn't find this in the PNB policy documents, so I've flagged "
                    "it for the policy team to follow up.")
-# Friendly overview of what the knowledge base actually covers.
+GREETING_REPLY = ("Namaste! I'm PNB Sahayak, the assistant for PNB employees. Ask me about a "
+                  "policy — for example pension life certificates, retiree medical insurance, "
+                  "KYC and account opening, or customer rights.")
+THANKS_REPLY = "You're welcome! Happy to help with any PNB policy question."
 CAPABILITY_ANSWER = (
-    "I answer questions from PNB's policy documents. I can help with topics like: "
-    "pension and life-certificate rules; medical insurance for retirees; the staff welfare fund; "
-    "KYC and account opening; customer rights and grievance redressal; settling a deceased "
-    "customer's account; service charges; and NRI/NRO accounts. Ask me about any of these."
-)
+    "I'm PNB Sahayak, an assistant for Punjab National Bank employees. I answer questions from "
+    "PNB's policy documents — for example: pension and life-certificate rules; medical insurance "
+    "for retirees; the staff welfare fund; KYC and account opening; customer rights and grievance "
+    "redressal; settling a deceased customer's account; service charges; and NRI/NRO accounts. "
+    "Ask me about any of these.")
 
 SYSTEM_PROMPT = (
     "You are PNB Sahayak, an assistant for Punjab National Bank employees. "
-    "Answer the QUESTION using ONLY the facts in the CONTEXT, which is taken from official "
-    "PNB documents. Never use outside knowledge and never guess. "
-    "Reply in ENGLISH, in 1 to 2 short sentences suitable for reading aloud. "
-    "Then, on a final separate line, write 'CITED: N' with exactly ONE Document number (the single most relevant one). "
-    "If the CONTEXT does not contain the answer, reply with exactly NO_INFO and nothing else."
-)
+    "Answer the QUESTION using ONLY facts explicitly stated in the CONTEXT below, which is taken "
+    "from official PNB documents. STRICT RULES:\n"
+    "1. Never use outside or general knowledge. Even if you know the answer, if it is not in the "
+    "CONTEXT you must not state it.\n"
+    "2. If the CONTEXT does not explicitly and specifically answer the QUESTION, reply with "
+    "exactly NO_INFO and nothing else. Do NOT write explanations like 'not specified'.\n"
+    "3. Do not mention document numbers in your answer text.\n"
+    "Otherwise reply in ENGLISH in 1 to 2 short sentences suitable for reading aloud, then on a "
+    "final separate line write 'CITED: N' with the single Document number you used.")
 
-MIN_SCORE = 4.0
+NOISE_SCORE = 7.0     # below this the query barely matches anything -> treat as off-topic
 STOPWORDS = {
     "the", "and", "for", "are", "was", "what", "when", "how", "why", "who", "which",
     "does", "did", "can", "will", "would", "should", "you", "your", "our", "their",
     "this", "that", "these", "those", "with", "about", "from", "into", "tell", "give",
-    "need", "want", "please", "there", "here", "have", "has", "had", "any", "get",
+    "need", "want", "please", "there", "here", "have", "has", "had", "any", "get", "all",
 }
+# Phrases the LLM emits when it can't actually answer -> treat as "not found".
+NOT_FOUND_PHRASES = [
+    "no_info", "not specified", "not mentioned", "no information", "not provided",
+    "does not contain", "not available in", "not found in", "cannot find", "can't find",
+    "not in the context", "not in the provided", "no details", "context does not",
+    "i am not provided", "unable to find", "no relevant information", "not stated",
+    "not explicitly", "not clearly", "not directly", "does not specify", "do not specify",
+    "no specific", "not listed", "isn't specified", "is not listed", "not defined",
+    "not outlined", "cannot be determined", "unable to determine", "not detailed",
+]
 _HINGLISH_WORDS = {"kab", "hai", "kya", "kaise", "kyun", "kyon", "nahi", "mujhe", "batao",
                    "chahiye", "kitna", "kitni", "karna", "krna", "mera", "meri", "hota",
                    "hoti", "jama", "milega", "kaun", "konsa", "kitne", "sakta", "sakti"}
 
-# Phrases that mean "what can this assistant do?" (checked on the English version).
 _CAPABILITY_PATTERNS = [
     "what can you help", "what all can you", "what do you do", "what can you do",
     "what are you able", "what policies can you", "which policies can you",
     "what all policies", "what topics", "what areas", "what questions can",
     "what can i ask", "what kind of questions", "list of policies", "list the policies",
     "what information can you", "how can you help", "what do you know", "what are you",
-    # "about my knowledge base" questions (kept specific so real questions like
-    # "what documents are required to open an account?" are NOT caught):
+    "who are you", "your name", "are you a", "are you an", "are you human", "are you real",
     "documents do you have", "documents you have", "how many documents",
     "what data do you have", "files do you have", "documents do you contain",
     "documents are in your", "your knowledge base", "documents are you trained",
 ]
+_GREETING_WORDS = {"hi", "hii", "hey", "heyy", "hiya", "hello", "helo", "namaste",
+                   "namaskar", "yo", "hola", "greetings"}
+_GREETING_PHRASES = ["good morning", "good afternoon", "good evening", "good night",
+                     "how are you", "whats up", "what's up", "nice to meet"]
+_THANKS = {"thanks", "thank", "thankyou", "thx", "ty", "appreciate"}
+_FAREWELL = ["bye", "goodbye", "good bye", "see you", "cya", "take care"]
 
-# Languages Sarvam's voice (Bulbul) can speak; the other 9 + Hindi use Mayura + voice.
-VOICE_LANGS = {"bn-IN", "en-IN", "gu-IN", "hi-IN", "kn-IN", "ml-IN", "mr-IN",
-               "od-IN", "pa-IN", "ta-IN", "te-IN"}
 LANG_NAMES = {
     "hi": "Hindi", "en": "English", "bn": "Bengali", "gu": "Gujarati", "kn": "Kannada",
     "ml": "Malayalam", "mr": "Marathi", "od": "Odia", "pa": "Punjabi", "ta": "Tamil",
@@ -75,6 +91,8 @@ LANG_NAMES = {
     "kok": "Konkani", "mai": "Maithili", "doi": "Dogri", "ks": "Kashmiri", "sd": "Sindhi",
     "mni": "Manipuri", "sat": "Santali", "brx": "Bodo",
 }
+VOICE_LANGS = {"bn-IN", "en-IN", "gu-IN", "hi-IN", "kn-IN", "ml-IN", "mr-IN",
+               "od-IN", "pa-IN", "ta-IN", "te-IN"}
 
 
 def _tokenize(text):
@@ -82,7 +100,9 @@ def _tokenize(text):
 
 
 def _content_terms(text):
-    return [t for t in _tokenize(text) if len(t) >= 3 and t not in STOPWORDS]
+    # meaningful words: >=3 chars, not a stopword, and containing a letter (drops "12345")
+    return [t for t in _tokenize(text)
+            if len(t) >= 3 and t not in STOPWORDS and re.search(r"[a-z]", t)]
 
 
 def _confidence(score):
@@ -92,6 +112,31 @@ def _confidence(score):
 def _is_capability(text):
     t = text.lower()
     return any(p in t for p in _CAPABILITY_PATTERNS)
+
+
+def _is_notfound(text):
+    t = (text or "").lower()
+    return any(p in t for p in NOT_FOUND_PHRASES)
+
+
+def greeting_reply(text):
+    """Return a friendly reply if this is a greeting/thanks/farewell, else None."""
+    t = re.sub(r"[^a-z\s']", " ", (text or "").lower())
+    t = re.sub(r"\s+", " ", t).strip()
+    if not t:
+        return None
+    words = t.split()
+    if len(words) > 5:      # too long to be a pure greeting
+        return None
+    if any(w in _THANKS for w in words):
+        return THANKS_REPLY
+    if words[0] in _GREETING_WORDS:
+        return GREETING_REPLY
+    if any(t == p or t.startswith(p + " ") or t == p.replace("'", "") for p in _GREETING_PHRASES):
+        return GREETING_REPLY
+    if any(t == p or t.startswith(p + " ") for p in _FAREWELL):
+        return GREETING_REPLY
+    return None
 
 
 def decide_reply(transcript, language_code):
@@ -114,11 +159,10 @@ def decide_reply(transcript, language_code):
         return dict(is_english=False, style_label="Hinglish", voice_lang="hi-IN",
                     trans_model="mayura:v1", in_source="auto", out_target="hi-IN",
                     mode="code-mixed", output_script="roman")
-    if language_code in VOICE_LANGS:   # other 9 languages Bulbul can speak
+    if language_code in VOICE_LANGS:
         return dict(is_english=False, style_label=name, voice_lang=language_code,
                     trans_model="mayura:v1", in_source="auto", out_target=language_code,
                     mode="modern-colloquial", output_script="fully-native")
-    # extended languages: understand + answer in text (no Bulbul voice)
     return dict(is_english=False, style_label=name, voice_lang=None,
                 trans_model="sarvam-translate:v1", in_source=language_code,
                 out_target=language_code, mode=None, output_script=None)
@@ -128,25 +172,26 @@ class Assistant:
     def __init__(self):
         self.kb = KnowledgeBase()
 
-    def _to_user_lang(self, text_en, plan):
-        if plan["is_english"]:
-            return text_en
-        try:
-            return sc.translate(text_en, plan["out_target"], source_language_code="en-IN",
-                                model=plan["trans_model"], mode=plan["mode"],
-                                output_script=plan["output_script"])
-        except Exception:
-            return text_en
-
     def _reply(self, transcript, language_code, plan, timings, answer_en,
                source=None, confidence="Low", score=0.0, escalate=False, kind="answer"):
+        # Only real document answers are translated to the user's language; short
+        # meta/decline replies stay in English (instant, no extra API call).
+        if kind == "answer" and not plan["is_english"]:
+            try:
+                answer = sc.translate(answer_en, plan["out_target"], source_language_code="en-IN",
+                                      model=plan["trans_model"], mode=plan["mode"],
+                                      output_script=plan["output_script"])
+            except Exception:
+                answer = answer_en
+        else:
+            answer = answer_en
         return {
             "transcript": transcript, "language_code": language_code,
             "style_label": plan["style_label"], "query_en": "",
-            "answer": self._to_user_lang(answer_en, plan), "answer_en": answer_en,
+            "answer": answer, "answer_en": answer_en,
             "source": source, "confidence": confidence, "score": score,
             "escalate": escalate, "kind": kind,
-            "tts_lang": (plan["voice_lang"] if not escalate and kind != "offtopic" else "en-IN"),
+            "tts_lang": (plan["voice_lang"] if kind == "answer" else "en-IN"),
             "timings": timings,
         }
 
@@ -154,12 +199,17 @@ class Assistant:
         timings = {}
         plan = decide_reply(question, language_code)
 
-        # Gate #1: no real words (greeting / emoji / blank) -> polite, NO ticket.
-        if plan["is_english"] and not _content_terms(question):
-            return self._reply(question, language_code, plan, timings, POLITE_OFFTOPIC,
-                               escalate=False, kind="offtopic")
+        # 1. Greeting / small talk (no ticket, no LLM)
+        g = greeting_reply(question)
+        if g:
+            return self._reply(question, language_code, plan, timings, g, kind="greeting")
 
-        # Translate the question to English for searching (only if needed).
+        # 2. "About you" / capability (no ticket, no LLM)
+        if _is_capability(question):
+            return self._reply(question, language_code, plan, timings, CAPABILITY_ANSWER,
+                                confidence="—", kind="capability")
+
+        # Translate the question to English for searching.
         try:
             if plan["is_english"]:
                 query_en = question
@@ -169,78 +219,82 @@ class Assistant:
                                         model=plan["trans_model"])
                 timings["translate_in_ms"] = int((time.time() - t) * 1000)
         except Exception:
-            return self._reply(question, language_code, plan, timings, POLITE_OFFTOPIC,
-                               escalate=False, kind="offtopic")
+            return self._reply(question, language_code, plan, timings, POLITE_OFFTOPIC, kind="offtopic")
 
-        # "What can you help with?" -> friendly capabilities answer (not an escalation).
-        if _is_capability(query_en):
-            r = self._reply(question, language_code, plan, timings, CAPABILITY_ANSWER,
-                            confidence="—", kind="capability")
-            return r
+        if not plan["is_english"]:   # re-check meta on the translated text
+            g = greeting_reply(query_en)
+            if g:
+                return self._reply(question, language_code, plan, timings, g, kind="greeting")
+            if _is_capability(query_en):
+                return self._reply(question, language_code, plan, timings, CAPABILITY_ANSWER,
+                                    confidence="—", kind="capability")
 
+        # 3. No real words -> polite off-topic.
         if not _content_terms(query_en):
-            return self._reply(question, language_code, plan, timings, POLITE_OFFTOPIC,
-                               escalate=False, kind="offtopic")
+            return self._reply(question, language_code, plan, timings, POLITE_OFFTOPIC, kind="offtopic")
 
-        # Search the real documents.
+        # 4. Search the real documents.
         t = time.time()
         hits = self.kb.search(query_en, k=k)
         timings["search_ms"] = int((time.time() - t) * 1000)
         top = hits[0] if hits else None
 
-        # Gate #2: a genuine question with no relevant passage -> escalate (ticket).
-        content = set(_content_terms(query_en))
-        present = len(content & set(_tokenize(top["text"]))) if top else 0
-        need = 2 if len(content) >= 4 else 1
-        if not top or top["score"] < MIN_SCORE or present < need:
-            return self._reply(question, language_code, plan, timings, POLITE_ESCALATE,
-                               score=(top["score"] if top else 0.0), escalate=True, kind="escalate")
+        # 5. Nothing relevant -> off-topic (no ticket, no LLM).
+        if not top or top["score"] < NOISE_SCORE:
+            return self._reply(question, language_code, plan, timings, POLITE_OFFTOPIC,
+                                score=(top["score"] if top else 0.0), kind="offtopic")
 
-        # Ask the LLM (grounded, English, brief, names the document it used).
+        # 5b. Relevance guard: the question's own words must actually appear in the best
+        # passage, otherwise we'd be answering from an unrelated document (e.g. "who is the
+        # PM of India?" matching a medical doc on the word "India") -> decline, don't guess.
+        content = set(_content_terms(query_en))
+        present = len(content & set(_tokenize(top["text"])))
+        if present < (2 if len(content) >= 3 else 1):
+            return self._reply(question, language_code, plan, timings, POLITE_OFFTOPIC,
+                                score=top["score"], kind="offtopic")
+
+        # 6. Ask the LLM, strictly grounded.
         context = "\n\n".join(
             f"[Document {i + 1}: {h['label'] or h['pdf']}]\n{h['text']}"
             for i, h in enumerate(hits)
         )
         try:
             t = time.time()
-            raw = sc.think(SYSTEM_PROMPT, f"CONTEXT:\n{context}\n\nQUESTION: {query_en}", max_tokens=160)
+            raw = sc.think(SYSTEM_PROMPT, f"CONTEXT:\n{context}\n\nQUESTION: {query_en}", max_tokens=180)
             timings["llm_ms"] = int((time.time() - t) * 1000)
         except Exception:
             return self._reply(question, language_code, plan, timings, POLITE_OFFTOPIC,
-                               score=top["score"], escalate=False, kind="offtopic")
+                                score=top["score"], kind="offtopic")
 
-        if (not raw) or ("NO_INFO" in raw.upper()):
+        # Couldn't answer from the documents -> escalate (genuine gap), never guess.
+        if (not raw) or ("NO_INFO" in raw.upper()) or _is_notfound(raw):
             return self._reply(question, language_code, plan, timings, POLITE_ESCALATE,
-                               score=top["score"], escalate=True, kind="escalate")
+                                score=top["score"], escalate=True, kind="escalate")
 
-        # Which document did the LLM actually use? (accurate citation). Strip the tag
-        # wherever it appears — the model sometimes writes it inline, not on its own line.
+        # 7. Real answer: strip the citation tag, map to the genuine source.
         m = re.search(r"CITED:\s*#?(\d+)", raw, re.IGNORECASE)
         cited_idx = (int(m.group(1)) - 1) if m else None
-        # Remove the citation tag and anything after it (the model sometimes appends extra
-        # document numbers like "CITED: 4, 6"), so nothing leaks into the spoken answer.
         answer_en = re.sub(r"\s*CITED\s*:.*$", "", raw, flags=re.IGNORECASE | re.DOTALL).strip()
+        answer_en = re.sub(r"\s*\[Document\s*\d+\]", "", answer_en, flags=re.IGNORECASE).strip()
+        if len(answer_en) < 3:   # model returned nothing usable -> don't show a blank answer
+            return self._reply(question, language_code, plan, timings, POLITE_ESCALATE,
+                                score=top["score"], escalate=True, kind="escalate")
         cited = hits[cited_idx] if (cited_idx is not None and 0 <= cited_idx < len(hits)) else top
 
-        t = time.time()
-        result = self._reply(
-            question, language_code, plan, timings, answer_en,
-            source={"pdf": cited["pdf"], "label": cited["label"], "url": cited["url"]},
-            confidence=_confidence(cited["score"]), score=cited["score"], kind="answer")
-        if not plan["is_english"]:
-            timings["translate_out_ms"] = int((time.time() - t) * 1000)
-        result["query_en"] = query_en
-        return result
+        r = self._reply(question, language_code, plan, timings, answer_en,
+                        source={"pdf": cited["pdf"], "label": cited["label"], "url": cited["url"]},
+                        confidence=_confidence(cited["score"]), score=cited["score"], kind="answer")
+        r["query_en"] = query_en
+        return r
 
 
 if __name__ == "__main__":
     import sys
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     bot = Assistant()
-    for q, lang in [("what all policies can you help me with?", "en-IN"),
-                    ("hi", "en-IN"),
-                    ("How often must pensioners submit a life certificate?", "en-IN"),
-                    ("What is the gold loan interest rate?", "en-IN")]:
-        r = bot.answer(q, lang)
-        print(f"Q: {q}\n  kind={r['kind']} escalate={r['escalate']} conf={r['confidence']} "
-              f"src={(r['source'] or {}).get('pdf')}\n  answer={r['answer'][:160]}\n")
+    for q in ["hi", "thanks", "who are you?", "what can you do?",
+              "How often must pensioners submit a life certificate?",
+              "who is the prime minister of india?", "what is the home loan interest rate?"]:
+        r = bot.answer(q, "en-IN")
+        print(f"{q[:40]:40} -> {r['kind']:10} esc={r['escalate']} src={(r['source'] or {}).get('pdf')}")
+        print(f"    {r['answer'][:90]}")
