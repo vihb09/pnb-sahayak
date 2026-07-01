@@ -219,7 +219,7 @@ def stats():
         return {k: r.get(k) for k in keys}
 
     keys = ("ts", "question", "style", "language_code", "confidence", "source_pdf",
-            "escalated", "ticket_id")
+            "escalated", "ticket_id", "kind", "answer")
     recent = [pick(r, keys) for r in recs[-12:]][::-1]
     escalations = [pick(r, ("ts", "question", "style", "ticket_id"))
                    for r in recs if r.get("escalated")][::-1][:12]

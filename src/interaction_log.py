@@ -31,6 +31,9 @@ def log_interaction(result: dict, channel: str) -> None:
             "answered": bool(source.get("pdf")),   # a real answer always has a source
             "escalated": bool(result.get("escalate", False)),
             "ticket_id": result.get("ticket_id"),
+            "kind": result.get("kind"),
+            "answer": result.get("answer", ""),        # what the employee actually saw
+            "answer_en": result.get("answer_en", ""),  # English, for audit consistency
         }
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
