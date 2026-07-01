@@ -8,11 +8,11 @@ bank's internal policies. The assistant:
 - **finds** the answer in a set of **real PNB policy documents** (keyword search),
 - **answers only from those documents** and **shows the exact source**, speaking the
   reply back in the user's language (Sarvam **Mayura** + **sarvam-30b** + **Bulbul**),
+- **drafts routine content** (emails, notes, replies) grounded in the same documents,
 - and when it **isn't confident, it doesn't guess** — it raises a follow-up **ticket**
   via an **n8n** workflow.
 
-It also includes a **governance dashboard**, an **offline post-call analytics** tool,
-and an **optional real-time streaming** demo.
+It also includes a **governance dashboard** and an **optional real-time streaming** demo.
 
 Built on the **Sarvam** AI stack. Runs locally with Python + FastAPI.
 
@@ -29,26 +29,27 @@ Built on the **Sarvam** AI stack. Runs locally with Python + FastAPI.
 |------------|-------|
 | 🎙️ Turn-by-turn voice Q&A (Hindi / English / Hinglish + 8 more languages) | home page `/` |
 | 📄 Answers grounded in 56 real PNB documents, with the genuine source shown | home page |
+| ✍️ Draft routine content (email / note / reply) grounded in policy, in any language | home page (Draft mode) |
+| ✉️ Email an answer to anyone, translated into any of 11 languages | home page |
 | 🚫 Honest "I can't find that" → **escalates** to a follow-up ticket | home page + n8n |
 | 📊 Governance dashboard (questions, languages, confidence, escalations) | `/dashboard` |
 | 🔴 Real-time streaming captions (optional, separate) | `/stream` |
-| 🎧 Post-call analytics — diarised transcript + speaking time + AI summary | `/analytics` (run `py src/call_analytics.py` once to generate) |
 
 ## Architecture
 
-See **[docs/architecture.md](docs/architecture.md)** for the full diagram. In short:
+See **[docs/architecture.md](docs/architecture.md)** for the full set of diagrams. In short:
 
 > speak → **Saaras** (speech→text) → **Mayura** (translate, if needed) → **BM25 search**
-> of real PNB docs → **sarvam-30b** (grounded answer + citation) → **Mayura** (translate
-> back) → **Bulbul** (speak) — and unanswered questions become **n8n** tickets.
+> of real PNB docs → **sarvam-30b** (grounded answer / draft + citation) → **Mayura**
+> (translate back) → **Bulbul** (speak) — and unanswered questions become **n8n** tickets.
 
 ## Sarvam APIs used (and why)
 
 | API / model | Why |
 |-------------|-----|
-| **Saaras** `saaras:v3` | speech → text (and live streaming + call diarisation) |
+| **Saaras** `saaras:v3` | speech → text (and live streaming) |
 | **Mayura** `mayura:v1` (Translate API) | bridge the user's language ↔ the English documents; keep Hinglish consistent |
-| **sarvam-30b** (Chat Completions) | write short, grounded answers (Sarvam recommends 30B for voice) |
+| **sarvam-30b** (Chat Completions) | write short, grounded answers and drafts (Sarvam recommends 30B for voice) |
 | **Bulbul** `bulbul:v3` | speak the answer back in the user's language |
 | **Sarvam Vision** (Document Digitization) | OCR the 2 scanned PDFs |
 
@@ -86,13 +87,6 @@ Open **http://127.0.0.1:8000** in Chrome or Edge. Click the mic (allow it the fi
 time) or type a question. Footer links go to the **dashboard** and the **streaming** demo.
 Stop with **Ctrl + C**.
 
-## Offline post-call analytics
-```
-py src/call_analytics.py
-```
-Synthesises a sample two-speaker call, then produces a diarised transcript, per-speaker
-speaking time, and an LLM summary (saved to `data/calls/sample_call_report.md`).
-
 ---
 
 ## Project structure
@@ -102,18 +96,18 @@ PnB Assistant/
 ├─ requirements.txt          ← Python dependencies
 ├─ .env.example              ← template for your API key (real .env is git-ignored)
 ├─ src/
-│  ├─ app.py                 ← FastAPI server: /, /dashboard, /analytics, /stream, /api/*, /ws/transcribe
+│  ├─ app.py                 ← FastAPI server: /, /dashboard, /stream, /api/*, /ws/transcribe
 │  ├─ sarvam_client.py       ← listen / translate / think / speak wrappers
 │  ├─ knowledge_base.py      ← BM25 search over the policy text
-│  ├─ assistant.py           ← the answer brain (grounding, citations, language lock)
+│  ├─ assistant.py           ← the answer brain (grounding, citations, language lock, drafting)
 │  ├─ escalation.py          ← unanswered → ticket → n8n
 │  ├─ interaction_log.py     ← logs every interaction (feeds the dashboard)
-│  ├─ call_analytics.py      ← offline diarisation + summary
 │  ├─ hello_sarvam.py        ← Phase-1 connection test
 │  ├─ ingest/                ← scripts that rebuild the knowledge base
 │  └─ web/                   ← index.html, dashboard.html, stream.html
 ├─ docs/
-│  ├─ architecture.md        ← diagram + Sarvam API rationale
+│  ├─ architecture.md        ← diagrams + Sarvam API rationale
+│  ├─ diagrams/              ← rendered PNG exports of every diagram (for slides)
 │  ├─ sarvam-api-reference.md← verified endpoints/models
 │  ├─ document-guide.md      ← what each of the 56 documents is
 │  ├─ question-bank.md       ← 12 questions × 11 languages

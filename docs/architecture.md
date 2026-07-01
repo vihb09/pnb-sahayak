@@ -85,7 +85,6 @@ flowchart TB
     subgraph L8["⑧ Governance & observability (cross-cutting)"]
         LOG["Structured logging (per-stage)"]:::store
         DASH["Dashboard — volumes · languages<br/>confidence · escalations · gaps"]:::store
-        PCA["Post-call analytics<br/>Saaras diarization → Sarvam summary"]:::store
     end
 
     SPA --> ORCH
@@ -330,12 +329,11 @@ production uses the on-prem / sovereign option.
 
 | Sarvam API / model | One line | Why we use it |
 |---|---|---|
-| **Saaras** (`saaras:v3`) | Speech → text (22 Indian languages) | Understands the spoken question; also powers live streaming + call diarisation |
+| **Saaras** (`saaras:v3`) | Speech → text (22 Indian languages) | Understands the spoken question; also powers live streaming |
 | **Mayura** (`mayura:v1`, Translate API) | Text → text across languages, code-mixed / Roman styles | Bridges the user's language and the English documents, and keeps Hinglish answers consistent (`sarvam-translate:v1` covers extra languages) |
 | **Sarvam-30B** (Chat Completions) | The LLM that reads context and writes the answer | Short, grounded answers; chosen over `sarvam-105b` because 30B is recommended for voice / low-latency |
 | **Bulbul** (`bulbul:v3`) | Text → speech (11 Indian languages) | Speaks the answer back in the user's language |
 | **Sarvam Vision** (Document Digitization) | Document / PDF → text (OCR) | Read the 2 scanned PDFs that had no text layer |
-| **Saaras Batch + diarization** | Recording → who-said-what transcript | Powers the offline post-call analytics |
 
 ## Built (PoC) vs. Production
 
