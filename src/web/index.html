@@ -190,7 +190,10 @@ function newTurn(question){
 function render(card,d){
   const langTag=LANG[d.language_code]||d.style_label||'';
   const qbubble=card.closest('.turn').querySelector('.q .bubble');
-  if(langTag && !qbubble.querySelector('.lang')) qbubble.innerHTML=qbubble.textContent+`<span class="lang">${esc(langTag)}${d.query_en&&d.query_en!==d.transcript?' · searched as “'+esc(d.query_en)+'”':''}</span>`;
+  if(qbubble && d.transcript && d.transcript.trim()){
+    const searched=(d.query_en&&d.query_en!==d.transcript)?' · searched as “'+esc(d.query_en)+'”':'';
+    qbubble.innerHTML=esc(d.transcript)+(langTag?`<span class="lang">${esc(langTag)}${searched}</span>`:'');
+  }
 
   const isDraft=d.kind==='draft';
   if(d.kind==='answer'){

@@ -93,8 +93,13 @@ def think(system_prompt: str, user_prompt: str, max_tokens: int = 400, temperatu
     return (message.get("content") or message.get("reasoning_content") or "").strip()
 
 
-def speak(text: str, target_language_code: str = "en-IN", speaker: str = "shubh") -> bytes:
-    """Bulbul text-to-speech. Returns WAV audio bytes."""
+def speak(text: str, target_language_code: str = "en-IN", speaker: str = "shubh",
+          pace: float = 0.95) -> bytes:
+    """Bulbul text-to-speech. Returns WAV audio bytes.
+
+    enable_preprocessing makes Bulbul read numbers, dates and mixed-language text the way a
+    person would (a big part of sounding natural), and a slightly gentler pace is less robotic.
+    (pitch/loudness are not supported on bulbul:v3.)"""
     r = requests.post(
         f"{BASE_URL}/text-to-speech",
         headers=JSON_HEADERS,
@@ -103,6 +108,8 @@ def speak(text: str, target_language_code: str = "en-IN", speaker: str = "shubh"
             "target_language_code": target_language_code,
             "speaker": speaker,
             "model": "bulbul:v3",
+            "pace": pace,
+            "enable_preprocessing": True,
         },
         timeout=90,
     )
