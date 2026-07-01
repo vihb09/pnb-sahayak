@@ -37,11 +37,21 @@ Built on the **Sarvam** AI stack. Runs locally with Python + FastAPI.
 
 ## Architecture
 
-See **[docs/architecture.md](docs/architecture.md)** for the full set of diagrams. In short:
-
 > speak → **Saaras** (speech→text) → **Mayura** (translate, if needed) → **BM25 search**
 > of real PNB docs → **sarvam-30b** (grounded answer / draft + citation) → **Mayura**
 > (translate back) → **Bulbul** (speak) — and unanswered questions become **n8n** tickets.
+
+**System context**
+
+![System context](docs/diagrams/1-system-context.png)
+
+**RAG / knowledge pipeline — grounded, no hallucination**
+
+![RAG pipeline](docs/diagrams/4-rag-pipeline.png)
+
+See **[docs/architecture.md](docs/architecture.md)** for all six views — system context, layered
+components, end-to-end sequence with a latency budget, the RAG pipeline, the agentic escalation
+workflow, and the on-prem deployment — plus security, NFRs, and the Sarvam-API rationale.
 
 ## Sarvam APIs used (and why)
 

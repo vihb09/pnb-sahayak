@@ -3,17 +3,22 @@
 **A multilingual, voice-first employee policy assistant on the Sarvam AI stack.**
 This document is the Solution Architecture: six architecture views (context → components →
 sequence → RAG → agentic escalation → deployment), plus security, non-functionals, and the
-Sarvam API rationale. Every view is a rendered Mermaid diagram.
+Sarvam API rationale. Each view is shown as a diagram image, with the editable Mermaid source
+collapsed beneath it.
 
 > **Diagram legend (palette).**
 > 🟦 **Blue** = Sarvam models · ⬛ **Navy** = our app / orchestration ·
 > 🟧 **Orange** = decision gates & the escalation path · ⬜ **Light** = supporting components & data stores.
 >
-> High-resolution PNG exports of every diagram (for slides) live in [`docs/diagrams/`](diagrams/).
+> The diagrams below are also in [`docs/diagrams/`](diagrams/) as high-resolution PNGs (handy for slides).
 
 ---
 
 ## 1 · System context — who and what it talks to
+
+![System context diagram](diagrams/1-system-context.png)
+
+<details><summary>Diagram source (Mermaid)</summary>
 
 ```mermaid
 flowchart TB
@@ -41,6 +46,8 @@ flowchart TB
     classDef store fill:#F1F5FB,stroke:#64748B,color:#15202E;
 ```
 
+</details>
+
 **In words.** Employees interact by voice; the app uses the Sarvam stack for all AI; it
 answers **only from approved PNB documents**; unanswered questions become tracked tickets;
 every turn is logged for governance; access is via SSO/IAM. *(The PoC uses Sarvam's hosted
@@ -50,6 +57,10 @@ DMS + IAM.)*
 ---
 
 ## 2 · Logical / component architecture — the layers
+
+![Component architecture diagram](diagrams/2-component-architecture.png)
+
+<details><summary>Diagram source (Mermaid)</summary>
 
 ```mermaid
 flowchart TB
@@ -118,6 +129,8 @@ flowchart TB
     style L8 fill:#F8FAFC,stroke:#CBD5E1,color:#15202E
 ```
 
+</details>
+
 **Component notes.** The **orchestrator** applies the efficiency levers (skip translate when
 the language is English; skip the LLM entirely on a gate-fail; cap answer length; reasoning
 off). **Ingestion** is an offline/batch pipeline, re-run only when documents change. The
@@ -128,6 +141,10 @@ a cross-encoder reranker) on a vector store for higher precision.
 ---
 
 ## 3 · End-to-end request sequence — data flow + latency budget
+
+![Request sequence diagram](diagrams/3-request-sequence.png)
+
+<details><summary>Diagram source (Mermaid)</summary>
 
 ```mermaid
 %%{init: {'themeVariables': {'noteBkgColor':'#F1F5FB','noteBorderColor':'#64748B','noteTextColor':'#15202E'}}}%%
@@ -176,6 +193,8 @@ sequenceDiagram
     O->>O: log interaction (per-stage latency)
 ```
 
+</details>
+
 **Latency budget:** target **~4–6s** end-to-end for a turn (text visible in ~2–3s; audio
 follows — TTS is usually the largest single cost). The **streaming captions** path
 (`/ws/transcribe`) is separate and real-time (words appear as you speak).
@@ -183,6 +202,10 @@ follows — TTS is usually the largest single cost). The **streaming captions** 
 ---
 
 ## 4 · RAG / knowledge pipeline — ingestion → grounded answer
+
+![RAG knowledge pipeline diagram](diagrams/4-rag-pipeline.png)
+
+<details><summary>Diagram source (Mermaid)</summary>
 
 ```mermaid
 flowchart LR
@@ -220,6 +243,8 @@ flowchart LR
     style INGEST fill:#F8FAFC,stroke:#CBD5E1,color:#15202E
 ```
 
+</details>
+
 **Why this is bank-safe:** generation is **retrieval-gated** and **citation-enforced** — the
 model is instructed to answer *only* from the injected passages and to name the source; if
 nothing clears the threshold, it never reaches the model. This is the concrete control behind
@@ -228,6 +253,10 @@ nothing clears the threshold, it never reaches the model. This is the concrete c
 ---
 
 ## 5 · Agentic escalation workflow — event → action, no human in the loop
+
+![Agentic escalation workflow diagram](diagrams/5-escalation-workflow.png)
+
+<details><summary>Diagram source (Mermaid)</summary>
 
 ```mermaid
 flowchart TB
@@ -258,6 +287,8 @@ flowchart TB
     classDef store fill:#F1F5FB,stroke:#64748B,color:#15202E;
 ```
 
+</details>
+
 **Callouts:** *"Answers only from approved documents."* · *"Unanswered → tracked ticket
 automatically."* · *"Every question logged → governance + knowledge-gap insight."*
 **Production:** route tickets to the bank's ITSM/workflow instead of a Sheet.
@@ -265,6 +296,10 @@ automatically."* · *"Every question logged → governance + knowledge-gap insig
 ---
 
 ## 6 · Deployment & infrastructure — sovereignty / on-prem
+
+![Deployment and infrastructure diagram](diagrams/6-deployment.png)
+
+<details><summary>Diagram source (Mermaid)</summary>
 
 ```mermaid
 flowchart TB
@@ -296,6 +331,8 @@ flowchart TB
     style BANK fill:#F8FAFC,stroke:#CBD5E1,color:#15202E
     style SARV fill:#F8FAFC,stroke:#CBD5E1,color:#15202E
 ```
+
+</details>
 
 **Residency.** In the ideal RFP-compliant setup, **Sarvam models run inside the bank's
 boundary** (sovereign / on-prem) so no document data leaves. If hosted, access is via private
