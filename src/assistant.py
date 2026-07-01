@@ -58,6 +58,11 @@ _CAPABILITY_PATTERNS = [
     "what all policies", "what topics", "what areas", "what questions can",
     "what can i ask", "what kind of questions", "list of policies", "list the policies",
     "what information can you", "how can you help", "what do you know", "what are you",
+    # "about my knowledge base" questions (kept specific so real questions like
+    # "what documents are required to open an account?" are NOT caught):
+    "documents do you have", "documents you have", "how many documents",
+    "what data do you have", "files do you have", "documents do you contain",
+    "documents are in your", "your knowledge base", "documents are you trained",
 ]
 
 # Languages Sarvam's voice (Bulbul) can speak; the other 9 + Hindi use Mayura + voice.
