@@ -61,9 +61,11 @@ see what staff ask and spot gaps in the documents."
 **SAY:** "The same listening capability, running in real time — Sarvam's streaming model
 transcribes word-by-word as I speak. It runs as a separate, isolated demo."
 
-## 3:30 — Offline post-call analytics (~25s)
-**DO:** Show `data/calls/sample_call_report.md` (run `py src/call_analytics.py` beforehand).
-**SAY:** "Offline, we can analyse recorded calls — Sarvam transcribes and separates
+## 3:30 — Post-call analytics (~25s)
+**DO:** Open **/analytics** (run `py src/call_analytics.py` once beforehand to generate the report).
+Play the call audio, then point to the **who-said-what transcript**, the **speaking-time bars**,
+and the **AI summary**.
+**SAY:** "We can also analyse recorded calls — Sarvam transcribes and separates
 **who said what**, then the LLM summarises topics, sentiment, and follow-ups. That's
 automated quality monitoring at scale."
 

@@ -32,7 +32,7 @@ Built on the **Sarvam** AI stack. Runs locally with Python + FastAPI.
 | 🚫 Honest "I can't find that" → **escalates** to a follow-up ticket | home page + n8n |
 | 📊 Governance dashboard (questions, languages, confidence, escalations) | `/dashboard` |
 | 🔴 Real-time streaming captions (optional, separate) | `/stream` |
-| 🎧 Offline post-call analytics (diarised transcript + summary) | `py src/call_analytics.py` |
+| 🎧 Post-call analytics — diarised transcript + speaking time + AI summary | `/analytics` (run `py src/call_analytics.py` once to generate) |
 
 ## Architecture
 
@@ -102,7 +102,7 @@ PnB Assistant/
 ├─ requirements.txt          ← Python dependencies
 ├─ .env.example              ← template for your API key (real .env is git-ignored)
 ├─ src/
-│  ├─ app.py                 ← FastAPI server: /, /dashboard, /stream, /api/*, /ws/transcribe
+│  ├─ app.py                 ← FastAPI server: /, /dashboard, /analytics, /stream, /api/*, /ws/transcribe
 │  ├─ sarvam_client.py       ← listen / translate / think / speak wrappers
 │  ├─ knowledge_base.py      ← BM25 search over the policy text
 │  ├─ assistant.py           ← the answer brain (grounding, citations, language lock)
