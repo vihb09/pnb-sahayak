@@ -33,3 +33,6 @@ pnb-knowledge-base.md
 
 # ===== Runtime logs (regenerated as the app is used) =====
 logs/
+
+# ===== Local-only helper: a browser page to view the diagram PNGs offline =====
+view-diagrams.html
