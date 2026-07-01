@@ -40,9 +40,9 @@ text and voice stay consistent, no switching."
 **DO:** On any answer, click **✉️ Email this answer**, type a **recipient** (a customer or a colleague — any address), choose a **language**, and Send.
 **SAY:** "The answer is translated into the chosen language and emailed directly to anyone — a customer or a peer — from the assistant's own mailbox. The employee never types any password."
 
-## 1:50 — Draft content, grounded in policy (~35s)
-**DO:** Tap **✍️ Draft** (next to Answer), then type e.g. *"draft an email to a customer explaining the life-certificate submission rules."* The assistant writes a ready-to-send email, grounded in the cited policy.
-**SAY:** "Beyond answering, it **drafts** routine content — emails, notes, replies — using only the approved documents, and it cites the source. Employees can **Copy** it or **email it in any language** to anyone."
+## 1:50 — Draft, summarise & make notes — grounded in policy (~35s)
+**DO:** Tap **✍️ Draft** (next to Answer), then try e.g. *"summarise the life-certificate policy as key points"* — or *"draft an email to a customer about it."* The assistant produces exactly that (bulleted notes, or a ready-to-send email), grounded in the cited policy.
+**SAY:** "Beyond answering, it **prepares content** — summaries, key points, notes, emails, replies — using only the approved documents, and it cites the source. Employees can **Copy** it or **email it in any language**."
 
 ## 2:25 — It doesn't guess; it escalates (~45s)
 **DO:** Ask something not in the documents, e.g. *"What is the current gold loan interest

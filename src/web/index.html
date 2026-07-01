@@ -205,7 +205,7 @@ function render(card,d){
   }
   let meta='';
   if(isDraft){
-    meta=`<span class="info">✍️ Draft — review before sending</span>`;
+    meta=`<span class="info">✍️ Draft — review before use</span>`;
     if(d.source) meta+=`<a class="src" href="${d.source.url}" target="_blank" rel="noopener"><span class="ic">📄</span><span>${esc(d.source.label||d.source.pdf)}<small>${esc(d.source.pdf)}</small></span></a>`;
   }else if(d.source){
     meta=`<a class="src" href="${d.source.url}" target="_blank" rel="noopener"><span class="ic">📄</span><span>${esc(d.source.label||d.source.pdf)}<small>${esc(d.source.pdf)}</small></span></a>`;
@@ -273,7 +273,7 @@ let draftMode=false;
 function setMode(){
   $("m-answer").classList.toggle('on',!draftMode);
   $("m-draft").classList.toggle('on',draftMode);
-  $("q").placeholder=draftMode?"Describe what to draft — e.g. an email to a customer about life-certificate rules…":"Type your question, or tap the mic to speak…";
+  $("q").placeholder=draftMode?"Draft, summarise or make notes — e.g. “key points of the life-certificate policy”":"Type your question, or tap the mic to speak…";
 }
 $("m-answer").addEventListener('click',()=>{draftMode=false;setMode();});
 $("m-draft").addEventListener('click',()=>{draftMode=true;setMode();});

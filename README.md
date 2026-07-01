@@ -29,7 +29,7 @@ Built on the **Sarvam** AI stack. Runs locally with Python + FastAPI.
 |------------|-------|
 | 🎙️ Turn-by-turn voice Q&A (Hindi / English / Hinglish + 8 more languages) | home page `/` |
 | 📄 Answers grounded in 56 real PNB documents, with the genuine source shown | home page |
-| ✍️ Draft routine content (email / note / reply) grounded in policy, in any language | home page (Draft mode) |
+| ✍️ Draft or summarise — emails, notes, key points, replies — grounded in policy | home page (Draft mode) |
 | ✉️ Email an answer to anyone, translated into any of 11 languages | home page |
 | 🚫 Honest "I can't find that" → **escalates** to a follow-up ticket | home page + n8n |
 | 📊 Governance dashboard (questions, languages, confidence, escalations) | `/dashboard` |
