@@ -35,8 +35,8 @@ language and the English documents, and the answer comes back in the **same lang
 text and voice stay consistent, no switching."
 
 ## 1:35 — Detailed answers & email in any language (~40s)
-**DO:** Above the input, tap **Detailed**, then ask a policy question — the reply is now a fuller, multi-point answer (still only from the documents).
-**SAY:** "Employees can choose a concise answer or a detailed one."
+**DO:** Ask a policy question — you get a **concise** answer. Not enough? Click **Detailed** on that answer and it re-writes the same question in full (the Concise/Detailed toggle sits on every answer; toggling back is instant).
+**SAY:** "Employees choose how much detail they want, per answer — read the short version, then expand to the full policy detail on demand."
 **DO:** On any answer, click **✉️ Email this answer**, type a **recipient** (a customer or a colleague — any address), choose a **language**, and Send.
 **SAY:** "The answer is translated into the chosen language and emailed directly to anyone — a customer or a peer — from the assistant's own mailbox. The employee never types any password."
 

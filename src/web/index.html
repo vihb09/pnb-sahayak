@@ -72,6 +72,10 @@
 
   .ans{font-size:17px;line-height:1.65;margin:2px 0 4px;}
   .ans.draft{white-space:pre-wrap;font-size:14.5px;line-height:1.6;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+  .lvlseg{display:inline-flex;background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:2px;margin:12px 0 0;}
+  .lvlseg button{border:none;background:transparent;color:var(--muted);font-size:11.5px;padding:4px 13px;border-radius:999px;cursor:pointer;}
+  .lvlseg button.on{background:var(--maroon-2);color:#fff;}
+  .lvlseg button:disabled{opacity:.6;cursor:default;}
   .ans-en{font-size:12.5px;color:var(--muted);font-style:italic;margin-top:6px;}
   .meta{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:13px;}
   .src{display:inline-flex;align-items:center;gap:8px;background:var(--panel-2);border:1px solid var(--line);
@@ -152,10 +156,6 @@
       <button type="button" id="m-answer" class="on">💬 Answer</button>
       <button type="button" id="m-draft">✍️ Draft</button>
     </div>
-    <div class="detseg" id="detseg">
-      <button type="button" id="d-concise" class="on">Concise</button>
-      <button type="button" id="d-detail">Detailed</button>
-    </div>
   </div>
   <form class="inner" id="form">
     <input id="q" type="text" placeholder="Type your question, or tap the mic to speak…" autocomplete="off" />
@@ -190,9 +190,16 @@ function newTurn(question){
 function render(card,d){
   const langTag=LANG[d.language_code]||d.style_label||'';
   const qbubble=card.closest('.turn').querySelector('.q .bubble');
-  if(langTag) qbubble.innerHTML=qbubble.textContent+`<span class="lang">${esc(langTag)}${d.query_en&&d.query_en!==d.transcript?' · searched as “'+esc(d.query_en)+'”':''}</span>`;
+  if(langTag && !qbubble.querySelector('.lang')) qbubble.innerHTML=qbubble.textContent+`<span class="lang">${esc(langTag)}${d.query_en&&d.query_en!==d.transcript?' · searched as “'+esc(d.query_en)+'”':''}</span>`;
 
   const isDraft=d.kind==='draft';
+  if(d.kind==='answer'){
+    card.__q=d.transcript||card.__q||'';
+    card.__lang=d.language_code||card.__lang||'en-IN';
+    card.__level=d.__level||card.__level||'concise';
+    card.__variants=card.__variants||{};
+    card.__variants[card.__level]=d;
+  }
   let meta='';
   if(isDraft){
     meta=`<span class="info">✍️ Draft — review before sending</span>`;
@@ -217,8 +224,12 @@ function render(card,d){
         <button class="esend" data-act="esend">Send</button>
         <span class="estatus"></span>
       </div></div>`:'';
+  const lvlToggle=(d.kind==='answer')?`<div class="lvlseg" title="Choose how much detail you want">
+      <button data-act="setlvl" data-lvl="concise" class="${card.__level==='concise'?'on':''}">Concise</button>
+      <button data-act="setlvl" data-lvl="detailed" class="${card.__level==='detailed'?'on':''}">Detailed</button>
+    </div>`:'';
   card.innerHTML=`<div class="ans${isDraft?' draft':''}">${esc(d.answer)}</div>${aen}
-    <div class="meta">${meta}</div>
+    <div class="meta">${meta}</div>${lvlToggle}
     <div class="voice" id="v-${card.__id}"></div>
     <audio id="au-${card.__id}" controls style="display:none"></audio>
     <div class="timings" id="t-${card.__id}"></div>${shareBox}`;
@@ -249,27 +260,32 @@ async function handle(promise,card){
   try{const d=await (await promise).json();render(card,d);if(d.kind!=='draft')speak(card,d);}
   catch(e){card.innerHTML='<div class="ans">⚠️ Could not reach the assistant. Is the app still running?</div>';}
 }
-function askText(q){const c=newTurn(q);const fd=new FormData();fd.append('question',q);fd.append('detail',detailMode?'1':'');fd.append('mode',draftMode?'draft':'answer');handle(fetch('/api/ask_text',{method:'POST',body:fd}),c);}
+function askText(q){const c=newTurn(q);const fd=new FormData();fd.append('question',q);fd.append('mode',draftMode?'draft':'answer');handle(fetch('/api/ask_text',{method:'POST',body:fd}),c);}
 
 $("form").addEventListener('submit',e=>{e.preventDefault();const q=$("q").value.trim();if(q){$("q").value='';askText(q);}});
 $("chips").addEventListener('click',e=>{if(e.target.classList.contains('chip'))askText(e.target.textContent);});
 
 const EMAIL_LANGS=[["en-IN","English"],["hi-IN","Hindi"],["bn-IN","Bengali"],["gu-IN","Gujarati"],["kn-IN","Kannada"],["ml-IN","Malayalam"],["mr-IN","Marathi"],["od-IN","Odia"],["pa-IN","Punjabi"],["ta-IN","Tamil"],["te-IN","Telugu"]];
-let detailMode=false;
-function setSeg(){$("d-concise").classList.toggle('on',!detailMode);$("d-detail").classList.toggle('on',detailMode);}
-$("d-concise").addEventListener('click',()=>{detailMode=false;setSeg();});
-$("d-detail").addEventListener('click',()=>{detailMode=true;setSeg();});
 let draftMode=false;
 function setMode(){
   $("m-answer").classList.toggle('on',!draftMode);
   $("m-draft").classList.toggle('on',draftMode);
-  $("detseg").style.display=draftMode?'none':'flex';
   $("q").placeholder=draftMode?"Describe what to draft — e.g. an email to a customer about life-certificate rules…":"Type your question, or tap the mic to speak…";
 }
 $("m-answer").addEventListener('click',()=>{draftMode=false;setMode();});
 $("m-draft").addEventListener('click',()=>{draftMode=true;setMode();});
 convo.addEventListener('click',async e=>{
   const t=e.target;
+  if(t.dataset.act==='setlvl'){
+    const card=t.closest('.card'),target=t.dataset.lvl;
+    if(!card.__q||card.__level===target)return;
+    if(card.__variants&&card.__variants[target]){card.__level=target;render(card,card.__variants[target]);return;}
+    t.disabled=true;t.textContent=(target==='detailed'?'Detailed':'Concise')+' …';
+    const fd=new FormData();fd.append('question',card.__q);fd.append('language_code',card.__lang||'');fd.append('detail',target==='detailed'?'1':'');
+    try{const nd=await (await fetch('/api/ask_text',{method:'POST',body:fd})).json();nd.__level=target;card.__variants=card.__variants||{};card.__variants[target]=nd;card.__level=target;render(card,nd);}
+    catch(err){t.disabled=false;t.textContent=(target==='detailed'?'Detailed':'Concise');}
+    return;
+  }
   if(t.dataset.act==='copy'){const card=t.closest('.card');const txt=(card.__data&&card.__data.display)||'';navigator.clipboard.writeText(txt).then(()=>{t.textContent='✓ Copied';setTimeout(()=>{t.textContent='📋 Copy';},1500);}).catch(()=>{t.textContent='Copy failed';});return;}
   if(t.dataset.act==='etoggle'){t.parentElement.querySelector('.eform').classList.toggle('show');return;}
   if(t.dataset.act==='esend'){
@@ -311,7 +327,7 @@ function stopAndSend(){
   if(!recording)return;recording=false;micBtn.classList.remove('rec');if(recTimer){clearTimeout(recTimer);recTimer=null;}
   hint.textContent="⏳ transcribing and searching…";
   let blob;try{blob=stopToWav();}catch(e){hint.textContent="⚠️ Recording error.";return;}
-  const c=newTurn(draftMode?"🎤 (voice draft request…)":"🎤 (voice question…)");const fd=new FormData();fd.append('audio',blob,'rec.wav');fd.append('detail',detailMode?'1':'');fd.append('mode',draftMode?'draft':'answer');
+  const c=newTurn(draftMode?"🎤 (voice draft request…)":"🎤 (voice question…)");const fd=new FormData();fd.append('audio',blob,'rec.wav');fd.append('mode',draftMode?'draft':'answer');
   handle(fetch('/api/ask',{method:'POST',body:fd}),c);hint.textContent="Answers are drawn only from genuine PNB documents.";
 }
 micBtn.addEventListener('click',async()=>{
