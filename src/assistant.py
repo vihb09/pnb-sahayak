@@ -171,20 +171,22 @@ def greeting_reply(text):
     return None
 
 
-def decide_reply(transcript, language_code):
-    """Pick ONE language + style for the whole reply (so it never switches mid-answer)."""
+def decide_reply(transcript, language_code, force_native=False):
+    """Pick ONE language + style for the whole reply (so it never switches mid-answer).
+    force_native=True (used when the user EXPLICITLY picks a language, e.g. the Draft
+    language selector) always uses that language's own script — never romanised Hinglish."""
     base = (language_code or "en-IN").split("-")[0].lower()
     name = LANG_NAMES.get(base, language_code)
     has_devanagari = bool(re.search(r"[ऀ-ॿ]", transcript or ""))
     lower = (transcript or "").lower()
     hinglish = any(re.search(rf"\b{w}\b", lower) for w in _HINGLISH_WORDS)
 
-    if base == "en" and not hinglish:
+    if base == "en" and (not hinglish or force_native):
         return dict(is_english=True, style_label="English", voice_lang="en-IN",
                     trans_model="mayura:v1", in_source="auto", out_target="en-IN",
                     mode=None, output_script=None)
     if base == "hi" or (base == "en" and hinglish):
-        if has_devanagari:
+        if has_devanagari or force_native:
             return dict(is_english=False, style_label="Hindi", voice_lang="hi-IN",
                         trans_model="mayura:v1", in_source="auto", out_target="hi-IN",
                         mode="modern-colloquial", output_script="fully-native")
@@ -329,7 +331,7 @@ class Assistant:
         Unlike answer(), a draft always produces something — it never escalates — but any
         policy facts it uses come only from the retrieved passages, and it cites the source."""
         timings = {}
-        plan = decide_reply(request, language_code)
+        plan = decide_reply(request, language_code, force_native=True)
 
         # Translate the request to English for searching + drafting.
         try:
