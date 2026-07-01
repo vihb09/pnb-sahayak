@@ -45,6 +45,17 @@ SYSTEM_PROMPT = (
     "Otherwise reply in ENGLISH in 1 to 2 short sentences suitable for reading aloud, then on a "
     "final separate line write 'CITED: N' with the single Document number you used.")
 
+DETAIL_SYSTEM_PROMPT = (
+    "You are PNB Sahayak, an assistant for Punjab National Bank employees. "
+    "Answer the QUESTION using ONLY facts explicitly stated in the CONTEXT below, which is taken "
+    "from official PNB documents. STRICT RULES:\n"
+    "1. Never use outside or general knowledge; if it is not in the CONTEXT, do not state it.\n"
+    "2. If the CONTEXT does not answer the QUESTION, reply with exactly NO_INFO and nothing else.\n"
+    "3. Do not mention document numbers in your answer text.\n"
+    "Otherwise give a THOROUGH answer in ENGLISH — up to 5-6 sentences or a few short bullet "
+    "points — covering all the relevant details, conditions, figures and steps in the CONTEXT. "
+    "Then on a final separate line write 'CITED: N' with the single Document number you used.")
+
 NOISE_SCORE = 7.0     # below this the query barely matches anything -> treat as off-topic
 STOPWORDS = {
     "the", "and", "for", "are", "was", "what", "when", "how", "why", "who", "which",
@@ -197,7 +208,7 @@ class Assistant:
             "timings": timings,
         }
 
-    def answer(self, question, language_code="en-IN", k=6):
+    def answer(self, question, language_code="en-IN", k=6, detail=False):
         timings = {}
         plan = decide_reply(question, language_code)
 
@@ -262,7 +273,9 @@ class Assistant:
         )
         try:
             t = time.time()
-            raw = sc.think(SYSTEM_PROMPT, f"CONTEXT:\n{context}\n\nQUESTION: {query_en}", max_tokens=180)
+            raw = sc.think(DETAIL_SYSTEM_PROMPT if detail else SYSTEM_PROMPT,
+                           f"CONTEXT:\n{context}\n\nQUESTION: {query_en}",
+                           max_tokens=(450 if detail else 180))
             timings["llm_ms"] = int((time.time() - t) * 1000)
         except Exception:
             return self._reply(question, language_code, plan, timings, POLITE_OFFTOPIC,

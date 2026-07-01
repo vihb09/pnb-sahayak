@@ -17,6 +17,7 @@ import json
 import os
 import re
 import time
+import urllib.parse
 from collections import Counter
 
 from fastapi import FastAPI, File, Form, UploadFile, WebSocket, WebSocketDisconnect
@@ -26,9 +27,14 @@ from pathlib import Path
 from sarvamai import AsyncSarvamAI
 
 import sarvam_client as sc
-from assistant import Assistant, POLITE_OFFTOPIC
+from assistant import Assistant, POLITE_OFFTOPIC, VOICE_LANGS
 from interaction_log import log_interaction, LOG_FILE
 from escalation import send_escalation
+from emailer import send_email
+
+
+def _truthy(v):
+    return str(v).lower() in ("1", "true", "yes", "on")
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 
@@ -72,7 +78,7 @@ def info():
 
 
 @app.post("/api/ask")
-async def ask(audio: UploadFile = File(...)):
+async def ask(audio: UploadFile = File(...), detail: str = Form("")):
     try:
         audio_bytes = await audio.read()
         t = time.time()
@@ -87,7 +93,7 @@ async def ask(audio: UploadFile = File(...)):
             r["timings"] = {"listen_ms": listen_ms}
             return JSONResponse(r)
 
-        result = bot.answer(transcript, heard["language_code"])
+        result = bot.answer(transcript, heard["language_code"], detail=_truthy(detail))
         result["timings"]["listen_ms"] = listen_ms
         return JSONResponse(_finalize(result, "voice"))
     except Exception as e:
@@ -96,12 +102,12 @@ async def ask(audio: UploadFile = File(...)):
 
 
 @app.post("/api/ask_text")
-async def ask_text(question: str = Form(""), language_code: str = Form("")):
+async def ask_text(question: str = Form(""), language_code: str = Form(""), detail: str = Form("")):
     try:
         if not question.strip():
             return JSONResponse(_empty_reply(question, language_code or "en-IN"))
         language_code = language_code or _guess_language(question)
-        result = bot.answer(question, language_code)
+        result = bot.answer(question, language_code, detail=_truthy(detail))
         return JSONResponse(_finalize(result, "text"))
     except Exception as e:
         print("ERROR in /api/ask_text:", repr(e))
@@ -118,6 +124,41 @@ async def speak(text: str = Form(...), language_code: str = Form("en-IN")):
     except Exception as e:
         print("ERROR in /api/speak:", repr(e))
         return JSONResponse({"audio_base64": "", "speak_ms": 0})
+
+
+@app.post("/api/email")
+async def email(to: str = Form(...), text: str = Form(...), question: str = Form(""),
+                source_label: str = Form(""), source_url: str = Form(""),
+                language_code: str = Form("en-IN")):
+    """Email an answer, translated into the chosen language. Sends via SMTP if
+    configured, otherwise returns a mailto link for the browser to open."""
+    try:
+        body_answer = text
+        if not (language_code or "en").lower().startswith("en"):
+            try:
+                model = "mayura:v1" if language_code in VOICE_LANGS else "sarvam-translate:v1"
+                body_answer = sc.translate(text, language_code, source_language_code="en-IN", model=model)
+            except Exception:
+                body_answer = text
+        subject = "PNB Sahayak — Policy answer"
+        parts = []
+        if question:
+            parts.append(f"Question: {question}\n")
+        parts.append(body_answer)
+        if source_label:
+            parts.append(f"\nSource: {source_label}" + (f"\n{source_url}" if source_url else ""))
+        parts.append("\n—\nSent via PNB Sahayak. Answers are grounded in official PNB documents.")
+        body = "\n".join(parts)
+
+        ok, info = send_email(to, subject, body)
+        resp = {"sent": ok, "info": info}
+        if not ok:
+            resp["mailto"] = ("mailto:" + urllib.parse.quote(to) + "?subject="
+                              + urllib.parse.quote(subject) + "&body=" + urllib.parse.quote(body))
+        return JSONResponse(resp)
+    except Exception as e:
+        print("ERROR in /api/email:", repr(e))
+        return JSONResponse({"sent": False, "info": "error"})
 
 
 def _read_log():

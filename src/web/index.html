@@ -104,6 +104,19 @@
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(239,90,107,.5);}70%{box-shadow:0 0 0 16px rgba(239,90,107,0);}100%{box-shadow:0 0 0 0 rgba(239,90,107,0);}}
   .hint{max-width:900px;margin:8px auto 0;text-align:center;font-size:12px;color:var(--muted);min-height:16px;}
   .hint a{color:var(--gold-soft);}
+  .detbar{max-width:900px;margin:0 auto 8px;display:flex;justify-content:center;}
+  .detseg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px;}
+  .detseg button{border:none;background:transparent;color:var(--muted);font-size:12px;padding:6px 16px;border-radius:999px;cursor:pointer;}
+  .detseg button.on{background:var(--maroon-2);color:#fff;}
+  .emailbox{margin-top:12px;border-top:1px solid var(--line);padding-top:12px;}
+  .ebtn{background:var(--panel-2);border:1px solid var(--line);color:var(--gold-soft);font-size:12.5px;padding:7px 13px;border-radius:10px;cursor:pointer;}
+  .ebtn:hover{border-color:var(--gold);}
+  .eform{display:none;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;}
+  .eform.show{display:flex;}
+  .eform input,.eform select{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:8px 10px;font-size:13px;}
+  .eform input{flex:1;min-width:170px;}
+  .esend{background:var(--maroon-2);color:#fff;border:none;border-radius:9px;padding:8px 15px;cursor:pointer;font-size:13px;}
+  .estatus{font-size:12px;color:var(--muted);width:100%;}
 </style>
 </head>
 <body>
@@ -133,6 +146,10 @@
 </main>
 
 <div class="composer">
+  <div class="detbar"><div class="detseg">
+    <button type="button" id="d-concise" class="on">Concise</button>
+    <button type="button" id="d-detail">Detailed</button>
+  </div></div>
   <form class="inner" id="form">
     <input id="q" type="text" placeholder="Type your question, or tap the mic to speak…" autocomplete="off" />
     <button type="submit" class="iconbtn send" title="Send">➤</button>
@@ -180,11 +197,20 @@ function render(card,d){
     meta=`<span class="tag">Not a PNB policy question</span>`;
   }
   const aen=(d.answer_en&&d.answer_en!==d.answer)?`<div class="ans-en">English: ${esc(d.answer_en)}</div>`:'';
+  const emailBox=(d.kind==='answer')?`<div class="emailbox">
+      <button class="ebtn" data-act="etoggle">✉️ Email this answer</button>
+      <div class="eform">
+        <input class="eto" type="email" placeholder="recipient@email.com"/>
+        <select class="elang" title="Email language">${EMAIL_LANGS.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('')}</select>
+        <button class="esend" data-act="esend">Send</button>
+        <span class="estatus"></span>
+      </div></div>`:'';
   card.innerHTML=`<div class="ans">${esc(d.answer)}</div>${aen}
     <div class="meta">${meta}</div>
     <div class="voice" id="v-${card.__id}"></div>
     <audio id="au-${card.__id}" controls style="display:none"></audio>
-    <div class="timings" id="t-${card.__id}"></div>`;
+    <div class="timings" id="t-${card.__id}"></div>${emailBox}`;
+  card.__data={question:d.transcript||'',text:(d.answer_en||d.answer||''),source_label:(d.source||{}).label||'',source_url:(d.source||{}).url||''};
   card.__timings=d.timings||{};
   drawTimings(card);
   scroll();
@@ -211,10 +237,33 @@ async function handle(promise,card){
   try{const d=await (await promise).json();render(card,d);speak(card,d);}
   catch(e){card.innerHTML='<div class="ans">⚠️ Could not reach the assistant. Is the app still running?</div>';}
 }
-function askText(q){const c=newTurn(q);const fd=new FormData();fd.append('question',q);handle(fetch('/api/ask_text',{method:'POST',body:fd}),c);}
+function askText(q){const c=newTurn(q);const fd=new FormData();fd.append('question',q);fd.append('detail',detailMode?'1':'');handle(fetch('/api/ask_text',{method:'POST',body:fd}),c);}
 
 $("form").addEventListener('submit',e=>{e.preventDefault();const q=$("q").value.trim();if(q){$("q").value='';askText(q);}});
 $("chips").addEventListener('click',e=>{if(e.target.classList.contains('chip'))askText(e.target.textContent);});
+
+const EMAIL_LANGS=[["en-IN","English"],["hi-IN","Hindi"],["bn-IN","Bengali"],["gu-IN","Gujarati"],["kn-IN","Kannada"],["ml-IN","Malayalam"],["mr-IN","Marathi"],["od-IN","Odia"],["pa-IN","Punjabi"],["ta-IN","Tamil"],["te-IN","Telugu"]];
+let detailMode=false;
+function setSeg(){$("d-concise").classList.toggle('on',!detailMode);$("d-detail").classList.toggle('on',detailMode);}
+$("d-concise").addEventListener('click',()=>{detailMode=false;setSeg();});
+$("d-detail").addEventListener('click',()=>{detailMode=true;setSeg();});
+convo.addEventListener('click',async e=>{
+  const t=e.target;
+  if(t.dataset.act==='etoggle'){t.parentElement.querySelector('.eform').classList.toggle('show');return;}
+  if(t.dataset.act==='esend'){
+    const box=t.closest('.emailbox'),card=t.closest('.card'),status=box.querySelector('.estatus');
+    const to=box.querySelector('.eto').value.trim(),lang=box.querySelector('.elang').value;
+    if(!to){status.textContent='Please enter an email address.';return;}
+    status.textContent='Sending…';
+    const dd=card.__data,fd=new FormData();
+    fd.append('to',to);fd.append('text',dd.text);fd.append('question',dd.question);fd.append('source_label',dd.source_label);fd.append('source_url',dd.source_url);fd.append('language_code',lang);
+    try{const r=await (await fetch('/api/email',{method:'POST',body:fd})).json();
+      if(r.sent)status.textContent='✓ Emailed to '+to;
+      else if(r.mailto){status.textContent='Opening your email app…';window.location.href=r.mailto;}
+      else status.textContent='Could not send email.';
+    }catch(err){status.textContent='Error sending email.';}
+  }
+});
 
 /* ===== microphone: record 16k mono WAV (Saaras-friendly) ===== */
 let audioCtx=null,mediaStream=null,srcNode=null,procNode=null,pcm=[],capRate=48000,recording=false,recTimer=null;
@@ -240,7 +289,7 @@ function stopAndSend(){
   if(!recording)return;recording=false;micBtn.classList.remove('rec');if(recTimer){clearTimeout(recTimer);recTimer=null;}
   hint.textContent="⏳ transcribing and searching…";
   let blob;try{blob=stopToWav();}catch(e){hint.textContent="⚠️ Recording error.";return;}
-  const c=newTurn("🎤 (voice question…)");const fd=new FormData();fd.append('audio',blob,'rec.wav');
+  const c=newTurn("🎤 (voice question…)");const fd=new FormData();fd.append('audio',blob,'rec.wav');fd.append('detail',detailMode?'1':'');
   handle(fetch('/api/ask',{method:'POST',body:fd}),c);hint.textContent="Answers are drawn only from genuine PNB documents.";
 }
 micBtn.addEventListener('click',async()=>{
