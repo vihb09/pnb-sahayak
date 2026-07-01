@@ -5,62 +5,54 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>PNB Sahayak — Governance Dashboard</title>
 <style>
-  :root {
-    --maroon:#6d1a2d; --maroon-dark:#511220; --gold:#e0a82e; --cream:#f7f2ea;
-    --ink:#2a2a2a; --muted:#6b6b6b; --green:#2e7d32; --amber:#c77700; --red:#b03030; --card:#fff;
+  :root{
+    --maroon:#6d1a2d;--maroon-2:#8e2440;--maroon-dark:#4a0f1f;--gold:#e0a82e;--gold-soft:#f6d98a;
+    --bg:#0f1116;--panel:#171a21;--panel-2:#1e222c;--line:#2a2f3a;
+    --ink:#eef0f4;--muted:#9aa3b2;--green:#43c07a;--amber:#e0a82e;--red:#ef5a6b;
   }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:"Segoe UI",system-ui,sans-serif; background:var(--cream); color:var(--ink); }
-  header { background:linear-gradient(135deg,var(--maroon),var(--maroon-dark)); color:#fff;
-    padding:20px 24px; display:flex; align-items:center; gap:16px; }
-  .logo { width:44px;height:44px;border-radius:50%;background:var(--gold);color:var(--maroon-dark);
-    font-weight:800;font-size:19px;display:flex;align-items:center;justify-content:center;flex:0 0 auto; }
-  header h1 { margin:0; font-size:19px; }
-  header p { margin:2px 0 0; font-size:13px; opacity:.9; }
-  header a { margin-left:auto; color:#fff; font-size:13px; text-decoration:none; border:1px solid rgba(255,255,255,.5);
-    padding:7px 12px; border-radius:8px; }
-  header a:hover { background:rgba(255,255,255,.12); }
-  main { max-width:1000px; margin:0 auto; padding:22px 18px 60px; }
-
-  .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
-  .card { background:var(--card); border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,.06); padding:16px 18px; }
-  .card .num { font-size:34px; font-weight:800; color:var(--maroon); line-height:1.1; }
-  .card .lbl { font-size:13px; color:var(--muted); margin-top:4px; }
-  .card.warn .num { color:var(--red); }
-
-  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px; }
-  .panel { background:var(--card); border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,.06); padding:16px 18px; }
-  .panel h2 { font-size:15px; margin:0 0 12px; color:var(--maroon); }
-  .bar-row { display:flex; align-items:center; gap:10px; margin:7px 0; font-size:14px; }
-  .bar-row .name { width:90px; flex:0 0 auto; color:var(--ink); }
-  .bar-wrap { flex:1; background:#efe7da; border-radius:6px; overflow:hidden; height:18px; }
-  .bar { height:100%; background:var(--maroon); }
-  .bar.High { background:var(--green); } .bar.Medium { background:var(--amber); } .bar.Low { background:var(--red); }
-  .bar-row .cnt { width:34px; text-align:right; color:var(--muted); flex:0 0 auto; }
-
-  table { width:100%; border-collapse:collapse; font-size:13.5px; }
-  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid #f0e9dd; vertical-align:top; }
-  th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.4px; }
-  .pill { display:inline-block; padding:2px 9px; border-radius:11px; font-size:12px; font-weight:700; color:#fff; }
-  .pill.High { background:var(--green); } .pill.Medium { background:var(--amber); } .pill.Low { background:var(--red); }
-  .pill.esc { background:var(--red); } .pill.ans { background:var(--green); }
-  .tkt { font-family:monospace; font-size:12px; color:var(--maroon-dark); }
-  .full { margin-top:16px; }
-  .muted { color:var(--muted); }
-  .empty { color:var(--muted); text-align:center; padding:24px; }
-  .updated { font-size:12px; color:var(--muted); margin-top:14px; text-align:right; }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;
+    background:radial-gradient(1200px 700px at 80% -10%, #2a1420 0%, var(--bg) 55%);color:var(--ink);min-height:100vh;}
+  header{display:flex;align-items:center;gap:14px;padding:16px 22px;border-bottom:1px solid var(--line);
+    background:rgba(20,14,20,.6);backdrop-filter:blur(8px);position:sticky;top:0;z-index:5;}
+  .logo{width:44px;height:44px;border-radius:13px;flex:0 0 auto;background:linear-gradient(135deg,var(--maroon-2),var(--maroon-dark));
+    color:var(--gold-soft);font-weight:800;font-size:17px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(142,36,64,.5);}
+  header h1{margin:0;font-size:18px;} header .sub{margin:2px 0 0;font-size:12.5px;color:var(--muted);}
+  .nav{margin-left:auto;} .nav a{color:var(--muted);text-decoration:none;font-size:12.5px;margin-left:16px;border-bottom:1px dashed transparent;}
+  .nav a:hover{color:var(--gold-soft);border-color:var(--gold-soft);}
+  main{max-width:1000px;margin:0 auto;padding:22px 18px 60px;}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:0 8px 24px rgba(0,0,0,.28);}
+  .card .num{font-size:34px;font-weight:800;background:linear-gradient(90deg,#fff,var(--gold-soft));-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1.1;}
+  .card.warn .num{background:none;color:var(--red);-webkit-text-fill-color:var(--red);}
+  .card .lbl{font-size:12.5px;color:var(--muted);margin-top:4px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:0 8px 24px rgba(0,0,0,.28);}
+  .panel h2{font-size:14px;margin:0 0 12px;color:var(--gold-soft);text-transform:uppercase;letter-spacing:.5px;}
+  .bar-row{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:14px;}
+  .bar-row .name{width:92px;flex:0 0 auto;color:var(--ink);}
+  .bar-wrap{flex:1;background:var(--panel-2);border-radius:6px;overflow:hidden;height:18px;border:1px solid var(--line);}
+  .bar{height:100%;background:linear-gradient(90deg,var(--maroon-2),var(--gold));}
+  .bar.High{background:var(--green);}.bar.Medium{background:var(--amber);}.bar.Low{background:var(--red);}
+  .bar-row .cnt{width:34px;text-align:right;color:var(--muted);flex:0 0 auto;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{color:var(--muted);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;}
+  .pill{display:inline-block;padding:3px 11px;border-radius:999px;font-size:11.5px;font-weight:700;color:#fff;}
+  .pill.High{background:var(--green);}.pill.Medium{background:var(--amber);}.pill.Low{background:var(--red);}
+  .pill.esc{background:var(--red);}.pill.ans{background:var(--green);}
+  .tkt{font-family:monospace;font-size:12px;color:var(--gold-soft);}
+  .full{margin-top:16px;} .muted{color:var(--muted);}
+  .empty{color:var(--muted);text-align:center;padding:24px;}
+  .updated{font-size:12px;color:var(--muted);margin-top:14px;text-align:right;}
 </style>
 </head>
 <body>
 <header>
-  <div class="logo">PNB</div>
-  <div>
-    <h1>PNB Sahayak — Governance Dashboard</h1>
-    <p>Live oversight of questions, languages, confidence, and escalations</p>
-  </div>
-  <a href="/">← Back to assistant</a>
+  <div class="logo">पं</div>
+  <div><h1>Governance Dashboard</h1><div class="sub">Live oversight of questions, languages, confidence & escalations</div></div>
+  <div class="nav"><a href="/">← Assistant</a><a href="/stream">Live</a></div>
 </header>
-
 <main>
   <div class="cards">
     <div class="card"><div class="num" id="c-total">0</div><div class="lbl">Questions asked</div></div>
@@ -68,93 +60,43 @@
     <div class="card warn"><div class="num" id="c-escalated">0</div><div class="lbl">Escalated to policy team</div></div>
     <div class="card"><div class="num" id="c-langs">0</div><div class="lbl">Languages used</div></div>
   </div>
-
   <div class="grid2">
-    <div class="panel">
-      <h2>Confidence of answers</h2>
-      <div id="confidence"></div>
-    </div>
-    <div class="panel">
-      <h2>Languages used</h2>
-      <div id="languages"></div>
-    </div>
+    <div class="panel"><h2>Confidence of answers</h2><div id="confidence"></div></div>
+    <div class="panel"><h2>Languages used</h2><div id="languages"></div></div>
   </div>
-
-  <div class="panel full">
-    <h2>Recent questions</h2>
-    <table>
-      <thead><tr><th>Time</th><th>Question</th><th>Language</th><th>Result</th><th>Source / Ticket</th></tr></thead>
-      <tbody id="recent"></tbody>
-    </table>
-  </div>
-
-  <div class="panel full">
-    <h2>⚠️ Escalations (unanswered → follow-up tickets)</h2>
-    <table>
-      <thead><tr><th>Time</th><th>Question</th><th>Language</th><th>Ticket</th></tr></thead>
-      <tbody id="escalations"></tbody>
-    </table>
-  </div>
-
+  <div class="panel full"><h2>Recent questions</h2>
+    <table><thead><tr><th>Time</th><th>Question</th><th>Language</th><th>Result</th><th>Source / Ticket</th></tr></thead>
+    <tbody id="recent"></tbody></table></div>
+  <div class="panel full"><h2>⚠️ Escalations → follow-up tickets</h2>
+    <table><thead><tr><th>Time</th><th>Question</th><th>Language</th><th>Ticket</th></tr></thead>
+    <tbody id="escalations"></tbody></table></div>
   <div class="updated" id="updated"></div>
 </main>
-
 <script>
-function esc(s){ return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function shortTime(ts){ return (ts||'').replace('T',' ').slice(5, 16); }  // MM-DD HH:MM
-
-function bars(containerId, entries, maxVal, classFor) {
-  const el = document.getElementById(containerId);
-  if (!entries.length) { el.innerHTML = '<div class="empty">No data yet — ask the assistant a few questions.</div>'; return; }
-  el.innerHTML = entries.map(e => {
-    const pct = maxVal ? Math.round(100 * e.count / maxVal) : 0;
-    const cls = classFor ? classFor(e.name) : '';
-    return `<div class="bar-row"><span class="name">${esc(e.name)}</span>
-      <span class="bar-wrap"><span class="bar ${cls}" style="width:${pct}%"></span></span>
-      <span class="cnt">${e.count}</span></div>`;
-  }).join('');
+function esc(s){return (s||'').toString().replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function shortTime(ts){return (ts||'').replace('T',' ').slice(5,16);}
+function bars(id,entries,maxVal,cls){
+  const el=document.getElementById(id);
+  if(!entries.length){el.innerHTML='<div class="empty">No data yet — ask the assistant a few questions.</div>';return;}
+  el.innerHTML=entries.map(e=>{const pct=maxVal?Math.round(100*e.count/maxVal):0;const c=cls?cls(e.name):'';
+    return `<div class="bar-row"><span class="name">${esc(e.name)}</span><span class="bar-wrap"><span class="bar ${c}" style="width:${pct}%"></span></span><span class="cnt">${e.count}</span></div>`;}).join('');
 }
-
-async function load() {
-  let d;
-  try { d = await (await fetch('/api/stats')).json(); }
-  catch (e) { document.getElementById('updated').textContent = 'Could not load stats — is the app running?'; return; }
-
-  document.getElementById('c-total').textContent = d.total;
-  document.getElementById('c-answered').textContent = d.answered;
-  document.getElementById('c-rate').textContent = d.answer_rate;
-  document.getElementById('c-escalated').textContent = d.escalated;
-  document.getElementById('c-langs').textContent = d.by_language.length;
-
-  const conf = ['High','Medium','Low'].map(k => ({ name:k, count:d.by_confidence[k] || 0 }));
-  const confMax = Math.max(1, ...conf.map(c => c.count));
-  bars('confidence', conf, confMax, n => n);
-
-  const langMax = Math.max(1, ...d.by_language.map(l => l.count));
-  bars('languages', d.by_language, langMax, null);
-
-  const recent = document.getElementById('recent');
-  recent.innerHTML = d.recent.length ? d.recent.map(r => {
-    const lang = r.style || r.language_code || '—';
-    const result = r.escalated
-      ? '<span class="pill esc">Escalated</span>'
-      : (r.confidence ? `<span class="pill ${r.confidence}">${r.confidence}</span>` : '<span class="pill ans">Replied</span>');
-    const last = r.escalated ? `<span class="tkt">${esc(r.ticket_id||'')}</span>` : esc(r.source_pdf || '—');
-    return `<tr><td class="muted">${esc(shortTime(r.ts))}</td><td>${esc(r.question||'')}</td>
-      <td>${esc(lang)}</td><td>${result}</td><td>${last}</td></tr>`;
-  }).join('') : '<tr><td colspan="5" class="empty">No questions yet.</td></tr>';
-
-  const escl = document.getElementById('escalations');
-  escl.innerHTML = d.escalations.length ? d.escalations.map(r =>
-    `<tr><td class="muted">${esc(shortTime(r.ts))}</td><td>${esc(r.question||'')}</td>
-      <td>${esc(r.style||'—')}</td><td class="tkt">${esc(r.ticket_id||'')}</td></tr>`
-  ).join('') : '<tr><td colspan="4" class="empty">No escalations — every question was answered. 🎉</td></tr>';
-
-  document.getElementById('updated').textContent = 'Updated ' + new Date().toLocaleTimeString() + ' · auto-refreshes every 10s';
+async function load(){
+  let d;try{d=await (await fetch('/api/stats')).json();}catch(e){document.getElementById('updated').textContent='Could not load stats — is the app running?';return;}
+  c_total.textContent=d.total;c_answered.textContent=d.answered;c_rate.textContent=d.answer_rate;c_escalated.textContent=d.escalated;c_langs.textContent=d.by_language.length;
+  const conf=['High','Medium','Low'].map(k=>({name:k,count:d.by_confidence[k]||0}));
+  bars('confidence',conf,Math.max(1,...conf.map(c=>c.count)),n=>n);
+  bars('languages',d.by_language,Math.max(1,...d.by_language.map(l=>l.count)),null);
+  document.getElementById('recent').innerHTML=d.recent.length?d.recent.map(r=>{
+    const lang=r.style||r.language_code||'—';
+    const res=r.escalated?'<span class="pill esc">Escalated</span>':(r.confidence&&r.confidence!=='—'?`<span class="pill ${r.confidence}">${r.confidence}</span>`:'<span class="pill ans">Replied</span>');
+    const last=r.escalated?`<span class="tkt">${esc(r.ticket_id||'')}</span>`:esc(r.source_pdf||'—');
+    return `<tr><td class="muted">${esc(shortTime(r.ts))}</td><td>${esc(r.question||'')}</td><td>${esc(lang)}</td><td>${res}</td><td>${last}</td></tr>`;}).join(''):'<tr><td colspan="5" class="empty">No questions yet.</td></tr>';
+  document.getElementById('escalations').innerHTML=d.escalations.length?d.escalations.map(r=>`<tr><td class="muted">${esc(shortTime(r.ts))}</td><td>${esc(r.question||'')}</td><td>${esc(r.style||'—')}</td><td class="tkt">${esc(r.ticket_id||'')}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">No escalations — every question was answered. 🎉</td></tr>';
+  document.getElementById('updated').textContent='Updated '+new Date().toLocaleTimeString()+' · auto-refreshes every 10s';
 }
-
-load();
-setInterval(load, 10000);
+const c_total=document.getElementById('c-total'),c_answered=document.getElementById('c-answered'),c_rate=document.getElementById('c-rate'),c_escalated=document.getElementById('c-escalated'),c_langs=document.getElementById('c-langs');
+load();setInterval(load,10000);
 </script>
 </body>
 </html>

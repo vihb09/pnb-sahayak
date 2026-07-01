@@ -185,6 +185,8 @@ class Assistant:
                 answer = answer_en
         else:
             answer = answer_en
+        if kind in ("greeting", "capability", "offtopic"):
+            confidence = "—"   # not a graded answer -> no confidence pill on the dashboard
         return {
             "transcript": transcript, "language_code": language_code,
             "style_label": plan["style_label"], "query_en": "",
