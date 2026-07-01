@@ -44,29 +44,57 @@ def listen(audio_bytes: bytes, filename: str = "audio.wav", content_type: str = 
     }
 
 
+def _chunks(text: str, limit: int):
+    """Split text into pieces under `limit` chars, preferring line boundaries so bullets
+    and paragraphs stay intact (a single over-long line is hard-split as a last resort)."""
+    out, cur = [], ""
+    for ln in text.split("\n"):
+        if len(ln) > limit:
+            if cur:
+                out.append(cur); cur = ""
+            for i in range(0, len(ln), limit):
+                out.append(ln[i:i + limit])
+            continue
+        if cur and len(cur) + len(ln) + 1 > limit:
+            out.append(cur); cur = ln
+        else:
+            cur = (cur + "\n" + ln) if cur else ln
+    if cur:
+        out.append(cur)
+    return out
+
+
 def translate(text: str, target_language_code: str, source_language_code: str = "auto",
               model: str = "mayura:v1", mode: str | None = None,
               output_script: str | None = None) -> str:
     """Translate text. model 'mayura:v1' covers 11 languages and supports style
     (mode/output_script, e.g. code-mixed + roman for Hinglish); 'sarvam-translate:v1'
-    covers the wider 22-language set (no style options)."""
+    covers the wider 22-language set (no style options). Text longer than the model's
+    character limit is translated in chunks so nothing is silently truncated."""
     if not text.strip():
         return text
     is_mayura = model.startswith("mayura")
-    body = {
-        "input": text[:(1000 if is_mayura else 2000)],
-        "source_language_code": source_language_code,
-        "target_language_code": target_language_code,
-        "model": model,
-    }
-    if is_mayura:
-        if mode:
-            body["mode"] = mode
-        if output_script:
-            body["output_script"] = output_script
-    r = requests.post(f"{BASE_URL}/translate", headers=JSON_HEADERS, json=body, timeout=45)
-    r.raise_for_status()
-    return (r.json().get("translated_text") or text).strip()
+    limit = 1000 if is_mayura else 2000
+
+    def _one(seg: str) -> str:
+        body = {
+            "input": seg,
+            "source_language_code": source_language_code,
+            "target_language_code": target_language_code,
+            "model": model,
+        }
+        if is_mayura:
+            if mode:
+                body["mode"] = mode
+            if output_script:
+                body["output_script"] = output_script
+        r = requests.post(f"{BASE_URL}/translate", headers=JSON_HEADERS, json=body, timeout=45)
+        r.raise_for_status()
+        return (r.json().get("translated_text") or seg).strip()
+
+    if len(text) <= limit:
+        return _one(text)
+    return "\n".join(_one(c) for c in _chunks(text, limit))
 
 
 def think(system_prompt: str, user_prompt: str, max_tokens: int = 400, temperature: float = 0.2,

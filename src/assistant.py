@@ -310,7 +310,8 @@ class Assistant:
         # 7. Real answer: strip the citation tag, map to the genuine source.
         m = re.search(r"CITED:\s*#?(\d+)", raw, re.IGNORECASE)
         cited_idx = (int(m.group(1)) - 1) if m else None
-        answer_en = re.sub(r"\s*CITED\s*:.*$", "", raw, flags=re.IGNORECASE | re.DOTALL).strip()
+        answer_en = re.sub(r"(?im)^\s*CITED\s*:.*$", "", raw)                       # citation on its own line
+        answer_en = re.sub(r"\s*CITED\s*:\s*#?\d+\s*$", "", answer_en, flags=re.IGNORECASE)  # trailing inline
         answer_en = re.sub(r"\s*\[Document\s*\d+\]", "", answer_en, flags=re.IGNORECASE).strip()
         if len(answer_en) < 3:   # model returned nothing usable -> don't show a blank answer
             return self._reply(question, language_code, plan, timings, POLITE_ESCALATE,
@@ -379,8 +380,11 @@ class Assistant:
         # Strip the citation tag; map to the genuine source if the model used one.
         m = re.search(r"CITED:\s*#?(\d+)", raw, re.IGNORECASE)
         cited_idx = (int(m.group(1)) - 1) if m else None
-        draft_en = re.sub(r"\s*CITED\s*:.*$", "", raw, flags=re.IGNORECASE | re.DOTALL).strip()
+        draft_en = re.sub(r"(?im)^\s*CITED\s*:.*$", "", raw)                        # citation on its own line
+        draft_en = re.sub(r"\s*CITED\s*:\s*#?\d+\s*$", "", draft_en, flags=re.IGNORECASE)  # trailing inline
         draft_en = re.sub(r"\s*\[Document\s*\d+\]", "", draft_en, flags=re.IGNORECASE).strip()
+        if len(draft_en) < 3:   # nothing usable left -> don't show a blank draft
+            return self._reply(request, language_code, plan, timings, DRAFT_FAIL, kind="offtopic")
 
         source, score = None, (top["score"] if top else 0.0)
         if relevant:

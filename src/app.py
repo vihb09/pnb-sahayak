@@ -78,7 +78,8 @@ def info():
 
 
 @app.post("/api/ask")
-async def ask(audio: UploadFile = File(...), detail: str = Form(""), mode: str = Form("answer")):
+async def ask(audio: UploadFile = File(...), detail: str = Form(""), mode: str = Form("answer"),
+              draft_lang: str = Form("")):
     try:
         audio_bytes = await audio.read()
         t = time.time()
@@ -94,7 +95,7 @@ async def ask(audio: UploadFile = File(...), detail: str = Form(""), mode: str =
             return JSONResponse(r)
 
         if mode == "draft":
-            result = bot.draft(transcript, heard["language_code"])
+            result = bot.draft(transcript, draft_lang or heard["language_code"])
         else:
             result = bot.answer(transcript, heard["language_code"], detail=_truthy(detail))
         result["timings"]["listen_ms"] = listen_ms
@@ -106,13 +107,13 @@ async def ask(audio: UploadFile = File(...), detail: str = Form(""), mode: str =
 
 @app.post("/api/ask_text")
 async def ask_text(question: str = Form(""), language_code: str = Form(""), detail: str = Form(""),
-                   mode: str = Form("answer")):
+                   mode: str = Form("answer"), draft_lang: str = Form("")):
     try:
         if not question.strip():
             return JSONResponse(_empty_reply(question, language_code or "en-IN"))
         language_code = language_code or _guess_language(question)
         if mode == "draft":
-            result = bot.draft(question, language_code)
+            result = bot.draft(question, draft_lang or language_code)
         else:
             result = bot.answer(question, language_code, detail=_truthy(detail))
         return JSONResponse(_finalize(result, "text"))

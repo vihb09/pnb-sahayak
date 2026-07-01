@@ -113,6 +113,9 @@
   .detseg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px;}
   .detseg button{border:none;background:transparent;color:var(--muted);font-size:12px;padding:6px 16px;border-radius:999px;cursor:pointer;}
   .detseg button.on{background:var(--maroon-2);color:#fff;}
+  .draftlangwrap{display:none;align-items:center;gap:6px;color:var(--muted);font-size:12px;}
+  .draftlangwrap.show{display:inline-flex;}
+  .draftlang{background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:6px 12px;font-size:12px;cursor:pointer;}
   .emailbox{margin-top:12px;border-top:1px solid var(--line);padding-top:12px;}
   .ebtn{background:var(--panel-2);border:1px solid var(--line);color:var(--gold-soft);font-size:12.5px;padding:7px 13px;border-radius:10px;cursor:pointer;}
   .ebtn:hover{border-color:var(--gold);}
@@ -156,6 +159,7 @@
       <button type="button" id="m-answer" class="on">💬 Answer</button>
       <button type="button" id="m-draft">✍️ Draft</button>
     </div>
+    <label id="draftLangWrap" class="draftlangwrap" title="Language for the draft"><span>🌐</span><select id="draftLang" class="draftlang"></select></label>
   </div>
   <form class="inner" id="form">
     <input id="q" type="text" placeholder="Type your question, or tap the mic to speak…" autocomplete="off" />
@@ -263,16 +267,18 @@ async function handle(promise,card){
   try{const d=await (await promise).json();render(card,d);if(d.kind!=='draft')speak(card,d);}
   catch(e){card.innerHTML='<div class="ans">⚠️ Could not reach the assistant. Is the app still running?</div>';}
 }
-function askText(q){const c=newTurn(q);const fd=new FormData();fd.append('question',q);fd.append('mode',draftMode?'draft':'answer');handle(fetch('/api/ask_text',{method:'POST',body:fd}),c);}
+function askText(q){const c=newTurn(q);const fd=new FormData();fd.append('question',q);fd.append('mode',draftMode?'draft':'answer');if(draftMode)fd.append('draft_lang',$("draftLang").value);handle(fetch('/api/ask_text',{method:'POST',body:fd}),c);}
 
 $("form").addEventListener('submit',e=>{e.preventDefault();const q=$("q").value.trim();if(q){$("q").value='';askText(q);}});
 $("chips").addEventListener('click',e=>{if(e.target.classList.contains('chip'))askText(e.target.textContent);});
 
 const EMAIL_LANGS=[["en-IN","English"],["hi-IN","Hindi"],["bn-IN","Bengali"],["gu-IN","Gujarati"],["kn-IN","Kannada"],["ml-IN","Malayalam"],["mr-IN","Marathi"],["od-IN","Odia"],["pa-IN","Punjabi"],["ta-IN","Tamil"],["te-IN","Telugu"]];
+$("draftLang").innerHTML=EMAIL_LANGS.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('');
 let draftMode=false;
 function setMode(){
   $("m-answer").classList.toggle('on',!draftMode);
   $("m-draft").classList.toggle('on',draftMode);
+  $("draftLangWrap").classList.toggle('show',draftMode);
   $("q").placeholder=draftMode?"Draft, summarise or make notes — e.g. “key points of the life-certificate policy”":"Type your question, or tap the mic to speak…";
 }
 $("m-answer").addEventListener('click',()=>{draftMode=false;setMode();});
@@ -330,7 +336,7 @@ function stopAndSend(){
   if(!recording)return;recording=false;micBtn.classList.remove('rec');if(recTimer){clearTimeout(recTimer);recTimer=null;}
   hint.textContent="⏳ transcribing and searching…";
   let blob;try{blob=stopToWav();}catch(e){hint.textContent="⚠️ Recording error.";return;}
-  const c=newTurn(draftMode?"🎤 (voice draft request…)":"🎤 (voice question…)");const fd=new FormData();fd.append('audio',blob,'rec.wav');fd.append('mode',draftMode?'draft':'answer');
+  const c=newTurn(draftMode?"🎤 (voice draft request…)":"🎤 (voice question…)");const fd=new FormData();fd.append('audio',blob,'rec.wav');fd.append('mode',draftMode?'draft':'answer');if(draftMode)fd.append('draft_lang',$("draftLang").value);
   handle(fetch('/api/ask',{method:'POST',body:fd}),c);hint.textContent="Answers are drawn only from genuine PNB documents.";
 }
 micBtn.addEventListener('click',async()=>{
