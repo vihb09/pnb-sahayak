@@ -89,10 +89,9 @@ NOT_FOUND_PHRASES = [
     "no_info", "not specified", "not mentioned", "no information", "not provided",
     "does not contain", "not available in", "not found in", "cannot find", "can't find",
     "not in the context", "not in the provided", "no details", "context does not",
-    "i am not provided", "unable to find", "no relevant information", "not stated",
-    "not explicitly", "not clearly", "not directly", "does not specify", "do not specify",
-    "no specific", "not listed", "isn't specified", "is not listed", "not defined",
-    "not outlined", "cannot be determined", "unable to determine", "not detailed",
+    "i am not provided", "unable to find", "no relevant information",
+    "does not specify", "do not specify", "isn't specified",
+    "cannot be determined", "unable to determine",
 ]
 _HINGLISH_WORDS = {"kab", "hai", "kya", "kaise", "kyun", "kyon", "nahi", "mujhe", "batao",
                    "chahiye", "kitna", "kitni", "karna", "krna", "mera", "meri", "hota",
@@ -139,6 +138,18 @@ def _content_terms(text):
 
 def _confidence(score):
     return "High" if score >= 12 else ("Medium" if score >= 6 else "Low")
+
+
+def _strip_tags(text):
+    """Remove the model's citation markers — 'CITED: 4', 'CITED: 4, 6', '[Document 4]',
+    '(Doc 2)' — wherever they appear, and tidy up the leftover whitespace."""
+    if not text:
+        return ""
+    text = re.sub(r"(?i)\bCITED\b\s*:?\s*#?\d+(?:\s*,\s*#?\d+)*", "", text)
+    text = re.sub(r"(?i)[\[(]\s*doc(?:ument)?s?\.?\s*#?\d+\s*[\])]", "", text)
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 
 def _is_capability(text):
@@ -208,9 +219,9 @@ class Assistant:
 
     def _reply(self, transcript, language_code, plan, timings, answer_en,
                source=None, confidence="Low", score=0.0, escalate=False, kind="answer"):
-        # Only real document answers are translated to the user's language; short
-        # meta/decline replies stay in English (instant, no extra API call).
-        if kind in ("answer", "draft") and not plan["is_english"]:
+        # Translate any non-English reply into the user's language — including short
+        # decline/escalate/greeting replies — so the assistant never switches to English.
+        if not plan["is_english"]:
             try:
                 answer = sc.translate(answer_en, plan["out_target"], source_language_code="en-IN",
                                       model=plan["trans_model"], mode=plan["mode"],
@@ -304,18 +315,16 @@ class Assistant:
             return self._reply(question, language_code, plan, timings, POLITE_OFFTOPIC,
                                 score=top["score"], kind="offtopic")
 
-        # Couldn't answer from the documents -> escalate (genuine gap), never guess.
-        if (not raw) or ("NO_INFO" in raw.upper()) or _is_notfound(raw):
-            return self._reply(question, language_code, plan, timings, POLITE_ESCALATE,
-                                score=top["score"], escalate=True, kind="escalate")
-
-        # 7. Real answer: strip the citation tag, map to the genuine source.
+        # 7. Strip the citation/document tags, then decide if the model really answered.
         m = re.search(r"CITED:\s*#?(\d+)", raw, re.IGNORECASE)
         cited_idx = (int(m.group(1)) - 1) if m else None
-        answer_en = re.sub(r"(?im)^\s*CITED\s*:.*$", "", raw)                       # citation on its own line
-        answer_en = re.sub(r"\s*CITED\s*:\s*#?\d+\s*$", "", answer_en, flags=re.IGNORECASE)  # trailing inline
-        answer_en = re.sub(r"\s*\[Document\s*\d+\]", "", answer_en, flags=re.IGNORECASE).strip()
-        if len(answer_en) < 3:   # model returned nothing usable -> don't show a blank answer
+        answer_en = _strip_tags(raw)
+
+        # Couldn't answer from the documents -> escalate (genuine gap), never guess. A real
+        # refusal is short; a long answer that merely hedges one clause is still an answer.
+        up = answer_en.upper()
+        if ((not raw) or len(answer_en) < 3 or up == "NO_INFO" or up.startswith("NO_INFO")
+                or (len(answer_en) <= 160 and _is_notfound(answer_en))):
             return self._reply(question, language_code, plan, timings, POLITE_ESCALATE,
                                 score=top["score"], escalate=True, kind="escalate")
         cited = hits[cited_idx] if (cited_idx is not None and 0 <= cited_idx < len(hits)) else top
@@ -379,12 +388,10 @@ class Assistant:
         if not raw or len(raw.strip()) < 3:
             return self._reply(request, language_code, plan, timings, DRAFT_FAIL, kind="offtopic")
 
-        # Strip the citation tag; map to the genuine source if the model used one.
+        # Strip citation/document tags; map to the genuine source if the model used one.
         m = re.search(r"CITED:\s*#?(\d+)", raw, re.IGNORECASE)
         cited_idx = (int(m.group(1)) - 1) if m else None
-        draft_en = re.sub(r"(?im)^\s*CITED\s*:.*$", "", raw)                        # citation on its own line
-        draft_en = re.sub(r"\s*CITED\s*:\s*#?\d+\s*$", "", draft_en, flags=re.IGNORECASE)  # trailing inline
-        draft_en = re.sub(r"\s*\[Document\s*\d+\]", "", draft_en, flags=re.IGNORECASE).strip()
+        draft_en = _strip_tags(raw)
         if len(draft_en) < 3:   # nothing usable left -> don't show a blank draft
             return self._reply(request, language_code, plan, timings, DRAFT_FAIL, kind="offtopic")
 

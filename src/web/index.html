@@ -210,9 +210,9 @@ function render(card,d){
   let meta='';
   if(isDraft){
     meta=`<span class="info">✍️ Draft — review before use</span>`;
-    if(d.source) meta+=`<a class="src" href="${d.source.url}" target="_blank" rel="noopener"><span class="ic">📄</span><span>${esc(d.source.label||d.source.pdf)}<small>${esc(d.source.pdf)}</small></span></a>`;
+    if(d.source) meta+=`<a class="src" href="${esc(d.source.url)}" target="_blank" rel="noopener"><span class="ic">📄</span><span>${esc(d.source.label||d.source.pdf)}<small>${esc(d.source.pdf)}</small></span></a>`;
   }else if(d.source){
-    meta=`<a class="src" href="${d.source.url}" target="_blank" rel="noopener"><span class="ic">📄</span><span>${esc(d.source.label||d.source.pdf)}<small>${esc(d.source.pdf)}</small></span></a>`;
+    meta=`<a class="src" href="${esc(d.source.url)}" target="_blank" rel="noopener"><span class="ic">📄</span><span>${esc(d.source.label||d.source.pdf)}<small>${esc(d.source.pdf)}</small></span></a>`;
     if(d.confidence&&d.confidence!=='—') meta+=`<span class="badge ${d.confidence}">${d.confidence} confidence</span>`;
   }else if(d.kind==='escalate'||d.escalate){
     meta=`<span class="flag">⚠️ No matching document — flagged to the policy team${d.ticket_id?' · ticket <b>'+esc(d.ticket_id)+'</b>':''}</span>`;
@@ -264,7 +264,7 @@ async function speak(card,d){
 let CARD_N=0;
 async function handle(promise,card){
   card.__id=++CARD_N;
-  try{const d=await (await promise).json();render(card,d);if(d.kind!=='draft')speak(card,d);}
+  try{const d=await (await promise).json();render(card,d);if(d.kind==='answer')speak(card,d);}
   catch(e){card.innerHTML='<div class="ans">⚠️ Could not reach the assistant. Is the app still running?</div>';}
 }
 function askText(q){const c=newTurn(q);const fd=new FormData();fd.append('question',q);fd.append('mode',draftMode?'draft':'answer');if(draftMode)fd.append('draft_lang',$("draftLang").value);handle(fetch('/api/ask_text',{method:'POST',body:fd}),c);}

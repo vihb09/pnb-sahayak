@@ -28,7 +28,7 @@ def log_interaction(result: dict, channel: str) -> None:
             "score": result.get("score"),
             "source_pdf": source.get("pdf"),
             "source_url": source.get("url"),
-            "answered": bool(source.get("pdf")),   # a real answer always has a source
+            "answered": bool(source.get("pdf")) or result.get("kind") == "draft",  # answers have a source; drafts count as handled
             "escalated": bool(result.get("escalate", False)),
             "ticket_id": result.get("ticket_id"),
             "kind": result.get("kind"),
