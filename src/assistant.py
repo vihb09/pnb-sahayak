@@ -56,6 +56,22 @@ DETAIL_SYSTEM_PROMPT = (
     "points — covering all the relevant details, conditions, figures and steps in the CONTEXT. "
     "Then on a final separate line write 'CITED: N' with the single Document number you used.")
 
+DRAFT_SYSTEM_PROMPT = (
+    "You are PNB Sahayak, helping a Punjab National Bank employee by DRAFTING routine internal "
+    "content they requested (an email, note, message, or reply). "
+    "Use the CONTEXT below (from official PNB documents) for any policy facts, figures, dates or "
+    "rules. Do NOT invent policy specifics that are not in the CONTEXT; if the CONTEXT is not "
+    "relevant, still write a professional draft but keep any policy claims general and never "
+    "fabricate numbers or dates.\n"
+    "Write the draft in ENGLISH, professional and courteous and ready to use. If it is an email, "
+    "include a Subject line. Keep it appropriately concise. Output ONLY the draft itself — no "
+    "preamble, no commentary. If you used a document for facts, add a final separate line "
+    "'CITED: N' with the single Document number you used.")
+
+DRAFT_EMPTY = ("Tell me what you'd like me to draft — for example, 'draft an email to a customer "
+               "explaining the life-certificate submission rules'.")
+DRAFT_FAIL = "Sorry, I couldn't prepare that draft just now. Please try rephrasing your request."
+
 NOISE_SCORE = 7.0     # below this the query barely matches anything -> treat as off-topic
 STOPWORDS = {
     "the", "and", "for", "are", "was", "what", "when", "how", "why", "who", "which",
@@ -187,7 +203,7 @@ class Assistant:
                source=None, confidence="Low", score=0.0, escalate=False, kind="answer"):
         # Only real document answers are translated to the user's language; short
         # meta/decline replies stay in English (instant, no extra API call).
-        if kind == "answer" and not plan["is_english"]:
+        if kind in ("answer", "draft") and not plan["is_english"]:
             try:
                 answer = sc.translate(answer_en, plan["out_target"], source_language_code="en-IN",
                                       model=plan["trans_model"], mode=plan["mode"],
@@ -204,7 +220,7 @@ class Assistant:
             "answer": answer, "answer_en": answer_en,
             "source": source, "confidence": confidence, "score": score,
             "escalate": escalate, "kind": kind,
-            "tts_lang": (plan["voice_lang"] if kind == "answer" else "en-IN"),
+            "tts_lang": (plan["voice_lang"] if kind in ("answer", "draft") else "en-IN"),
             "timings": timings,
         }
 
@@ -299,6 +315,76 @@ class Assistant:
         r = self._reply(question, language_code, plan, timings, answer_en,
                         source={"pdf": cited["pdf"], "label": cited["label"], "url": cited["url"]},
                         confidence=_confidence(cited["score"]), score=cited["score"], kind="answer")
+        r["query_en"] = query_en
+        return r
+
+    def draft(self, request, language_code="en-IN", k=6):
+        """Draft routine content (email / note / reply) grounded in the PNB documents.
+        Unlike answer(), a draft always produces something — it never escalates — but any
+        policy facts it uses come only from the retrieved passages, and it cites the source."""
+        timings = {}
+        plan = decide_reply(request, language_code)
+
+        # Translate the request to English for searching + drafting.
+        try:
+            if plan["is_english"]:
+                query_en = request
+            else:
+                t = time.time()
+                query_en = sc.translate(request, "en-IN", source_language_code=plan["in_source"],
+                                        model=plan["trans_model"])
+                timings["translate_in_ms"] = int((time.time() - t) * 1000)
+        except Exception:
+            return self._reply(request, language_code, plan, timings, DRAFT_EMPTY, kind="offtopic")
+
+        if not _content_terms(query_en):
+            return self._reply(request, language_code, plan, timings, DRAFT_EMPTY, kind="offtopic")
+
+        # Pull any relevant policy so the draft can be grounded (best-effort — a draft
+        # like "an email thanking a customer" may legitimately need no policy at all).
+        t = time.time()
+        hits = self.kb.search(query_en, k=k)
+        timings["search_ms"] = int((time.time() - t) * 1000)
+        top = hits[0] if hits else None
+
+        relevant = []
+        if top and top["score"] >= NOISE_SCORE:
+            content = set(_content_terms(query_en))
+            need = 2 if len(content) >= 3 else 1
+            relevant = [h for h in hits
+                        if len(content & set(_tokenize(h["text"]))) >= need]
+
+        context = "\n\n".join(
+            f"[Document {i + 1}: {h['label'] or h['pdf']}]\n{h['text']}"
+            for i, h in enumerate(relevant)
+        ) or "(no specific policy context found — draft professionally without inventing policy facts)"
+
+        try:
+            t = time.time()
+            raw = sc.think(DRAFT_SYSTEM_PROMPT,
+                           f"CONTEXT:\n{context}\n\nDRAFTING REQUEST: {query_en}",
+                           max_tokens=550)
+            timings["llm_ms"] = int((time.time() - t) * 1000)
+        except Exception:
+            return self._reply(request, language_code, plan, timings, DRAFT_FAIL, kind="offtopic")
+
+        if not raw or len(raw.strip()) < 3:
+            return self._reply(request, language_code, plan, timings, DRAFT_FAIL, kind="offtopic")
+
+        # Strip the citation tag; map to the genuine source if the model used one.
+        m = re.search(r"CITED:\s*#?(\d+)", raw, re.IGNORECASE)
+        cited_idx = (int(m.group(1)) - 1) if m else None
+        draft_en = re.sub(r"\s*CITED\s*:.*$", "", raw, flags=re.IGNORECASE | re.DOTALL).strip()
+        draft_en = re.sub(r"\s*\[Document\s*\d+\]", "", draft_en, flags=re.IGNORECASE).strip()
+
+        source, score = None, (top["score"] if top else 0.0)
+        if relevant:
+            c = relevant[cited_idx] if (cited_idx is not None and 0 <= cited_idx < len(relevant)) else relevant[0]
+            source = {"pdf": c["pdf"], "label": c["label"], "url": c["url"]}
+            score = c["score"]
+
+        r = self._reply(request, language_code, plan, timings, draft_en,
+                        source=source, confidence="—", score=score, kind="draft")
         r["query_en"] = query_en
         return r
 

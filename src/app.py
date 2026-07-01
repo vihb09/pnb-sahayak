@@ -78,7 +78,7 @@ def info():
 
 
 @app.post("/api/ask")
-async def ask(audio: UploadFile = File(...), detail: str = Form("")):
+async def ask(audio: UploadFile = File(...), detail: str = Form(""), mode: str = Form("answer")):
     try:
         audio_bytes = await audio.read()
         t = time.time()
@@ -93,7 +93,10 @@ async def ask(audio: UploadFile = File(...), detail: str = Form("")):
             r["timings"] = {"listen_ms": listen_ms}
             return JSONResponse(r)
 
-        result = bot.answer(transcript, heard["language_code"], detail=_truthy(detail))
+        if mode == "draft":
+            result = bot.draft(transcript, heard["language_code"])
+        else:
+            result = bot.answer(transcript, heard["language_code"], detail=_truthy(detail))
         result["timings"]["listen_ms"] = listen_ms
         return JSONResponse(_finalize(result, "voice"))
     except Exception as e:
@@ -102,12 +105,16 @@ async def ask(audio: UploadFile = File(...), detail: str = Form("")):
 
 
 @app.post("/api/ask_text")
-async def ask_text(question: str = Form(""), language_code: str = Form(""), detail: str = Form("")):
+async def ask_text(question: str = Form(""), language_code: str = Form(""), detail: str = Form(""),
+                   mode: str = Form("answer")):
     try:
         if not question.strip():
             return JSONResponse(_empty_reply(question, language_code or "en-IN"))
         language_code = language_code or _guess_language(question)
-        result = bot.answer(question, language_code, detail=_truthy(detail))
+        if mode == "draft":
+            result = bot.draft(question, language_code)
+        else:
+            result = bot.answer(question, language_code, detail=_truthy(detail))
         return JSONResponse(_finalize(result, "text"))
     except Exception as e:
         print("ERROR in /api/ask_text:", repr(e))
@@ -129,22 +136,26 @@ async def speak(text: str = Form(...), language_code: str = Form("en-IN")):
 @app.post("/api/email")
 async def email(to: str = Form(...), text: str = Form(...), question: str = Form(""),
                 source_label: str = Form(""), source_url: str = Form(""),
-                language_code: str = Form("en-IN")):
-    """Email an answer, translated into the chosen language. Sends via SMTP if
-    configured, otherwise returns a mailto link for the browser to open."""
+                language_code: str = Form("en-IN"), plain: str = Form("")):
+    """Email an answer (or a draft), translated into the chosen language. Sends via SMTP
+    if configured, otherwise returns a mailto link for the browser to open."""
     try:
-        # Assemble the full English email first, then translate the WHOLE thing so the
-        # subject AND body share one language. (The source URL is added afterwards,
-        # untranslated, so the link stays intact.)
-        en_lines = []
-        if question:
-            en_lines.append(f"Question: {question}")
-        en_lines.append(text)
-        if source_label:
-            en_lines.append(f"Source: {source_label}")
-        en_lines.append("Sent via PNB Sahayak. Answers are grounded in official PNB documents.")
-        en_body = "\n\n".join(en_lines)
-        subject_phrase = "Answer to your question"
+        # Assemble the English email, then translate the WHOLE thing so the subject and
+        # body share one language. (The source URL is added afterwards, untranslated.)
+        if _truthy(plain):
+            # Draft mode: the drafted content IS the message — send it as-is.
+            en_body = text
+            subject_phrase = "Message from PNB Sahayak"
+        else:
+            en_lines = []
+            if question:
+                en_lines.append(f"Question: {question}")
+            en_lines.append(text)
+            if source_label:
+                en_lines.append(f"Source: {source_label}")
+            en_lines.append("Sent via PNB Sahayak. Answers are grounded in official PNB documents.")
+            en_body = "\n\n".join(en_lines)
+            subject_phrase = "Answer to your question"
 
         if (language_code or "en").lower().startswith("en"):
             body = en_body
@@ -161,7 +172,7 @@ async def email(to: str = Form(...), text: str = Form(...), question: str = Form
                 subj_local = subject_phrase
             subject = f"PNB Sahayak — {subj_local}"
 
-        if source_url:
+        if source_url and not _truthy(plain):
             body = body + "\n" + source_url
 
         ok, info = send_email(to, subject, body)

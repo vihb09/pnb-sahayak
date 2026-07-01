@@ -71,6 +71,7 @@
   @keyframes blink .pd{}
 
   .ans{font-size:17px;line-height:1.65;margin:2px 0 4px;}
+  .ans.draft{white-space:pre-wrap;font-size:14.5px;line-height:1.6;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
   .ans-en{font-size:12.5px;color:var(--muted);font-style:italic;margin-top:6px;}
   .meta{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:13px;}
   .src{display:inline-flex;align-items:center;gap:8px;background:var(--panel-2);border:1px solid var(--line);
@@ -104,7 +105,7 @@
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(239,90,107,.5);}70%{box-shadow:0 0 0 16px rgba(239,90,107,0);}100%{box-shadow:0 0 0 0 rgba(239,90,107,0);}}
   .hint{max-width:900px;margin:8px auto 0;text-align:center;font-size:12px;color:var(--muted);min-height:16px;}
   .hint a{color:var(--gold-soft);}
-  .detbar{max-width:900px;margin:0 auto 8px;display:flex;justify-content:center;}
+  .detbar{max-width:900px;margin:0 auto 8px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap;}
   .detseg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px;}
   .detseg button{border:none;background:transparent;color:var(--muted);font-size:12px;padding:6px 16px;border-radius:999px;cursor:pointer;}
   .detseg button.on{background:var(--maroon-2);color:#fff;}
@@ -146,10 +147,16 @@
 </main>
 
 <div class="composer">
-  <div class="detbar"><div class="detseg">
-    <button type="button" id="d-concise" class="on">Concise</button>
-    <button type="button" id="d-detail">Detailed</button>
-  </div></div>
+  <div class="detbar">
+    <div class="detseg" id="modeseg">
+      <button type="button" id="m-answer" class="on">💬 Answer</button>
+      <button type="button" id="m-draft">✍️ Draft</button>
+    </div>
+    <div class="detseg" id="detseg">
+      <button type="button" id="d-concise" class="on">Concise</button>
+      <button type="button" id="d-detail">Detailed</button>
+    </div>
+  </div>
   <form class="inner" id="form">
     <input id="q" type="text" placeholder="Type your question, or tap the mic to speak…" autocomplete="off" />
     <button type="submit" class="iconbtn send" title="Send">➤</button>
@@ -185,8 +192,12 @@ function render(card,d){
   const qbubble=card.closest('.turn').querySelector('.q .bubble');
   if(langTag) qbubble.innerHTML=qbubble.textContent+`<span class="lang">${esc(langTag)}${d.query_en&&d.query_en!==d.transcript?' · searched as “'+esc(d.query_en)+'”':''}</span>`;
 
+  const isDraft=d.kind==='draft';
   let meta='';
-  if(d.source){
+  if(isDraft){
+    meta=`<span class="info">✍️ Draft — review before sending</span>`;
+    if(d.source) meta+=`<a class="src" href="${d.source.url}" target="_blank" rel="noopener"><span class="ic">📄</span><span>${esc(d.source.label||d.source.pdf)}<small>${esc(d.source.pdf)}</small></span></a>`;
+  }else if(d.source){
     meta=`<a class="src" href="${d.source.url}" target="_blank" rel="noopener"><span class="ic">📄</span><span>${esc(d.source.label||d.source.pdf)}<small>${esc(d.source.pdf)}</small></span></a>`;
     if(d.confidence&&d.confidence!=='—') meta+=`<span class="badge ${d.confidence}">${d.confidence} confidence</span>`;
   }else if(d.kind==='escalate'||d.escalate){
@@ -197,20 +208,21 @@ function render(card,d){
     meta=`<span class="tag">Not a PNB policy question</span>`;
   }
   const aen=(d.answer_en&&d.answer_en!==d.answer)?`<div class="ans-en">English: ${esc(d.answer_en)}</div>`:'';
-  const emailBox=(d.kind==='answer')?`<div class="emailbox">
-      <button class="ebtn" data-act="etoggle">✉️ Email this answer</button>
+  const canShare=(d.kind==='answer'||isDraft);
+  const shareBox=canShare?`<div class="emailbox">
+      ${isDraft?'<button class="ebtn" data-act="copy">📋 Copy</button> ':''}<button class="ebtn" data-act="etoggle">✉️ Email this ${isDraft?'draft':'answer'}</button>
       <div class="eform">
         <input class="eto" type="email" placeholder="Send to any email — customer, colleague…"/>
         <select class="elang" title="Email language">${EMAIL_LANGS.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('')}</select>
         <button class="esend" data-act="esend">Send</button>
         <span class="estatus"></span>
       </div></div>`:'';
-  card.innerHTML=`<div class="ans">${esc(d.answer)}</div>${aen}
+  card.innerHTML=`<div class="ans${isDraft?' draft':''}">${esc(d.answer)}</div>${aen}
     <div class="meta">${meta}</div>
     <div class="voice" id="v-${card.__id}"></div>
     <audio id="au-${card.__id}" controls style="display:none"></audio>
-    <div class="timings" id="t-${card.__id}"></div>${emailBox}`;
-  card.__data={question:d.transcript||'',text:(d.answer_en||d.answer||''),source_label:(d.source||{}).label||'',source_url:(d.source||{}).url||''};
+    <div class="timings" id="t-${card.__id}"></div>${shareBox}`;
+  card.__data={question:d.transcript||'',text:(d.answer_en||d.answer||''),display:(d.answer||''),source_label:(d.source||{}).label||'',source_url:(d.source||{}).url||'',isDraft:isDraft};
   card.__timings=d.timings||{};
   drawTimings(card);
   scroll();
@@ -234,10 +246,10 @@ async function speak(card,d){
 let CARD_N=0;
 async function handle(promise,card){
   card.__id=++CARD_N;
-  try{const d=await (await promise).json();render(card,d);speak(card,d);}
+  try{const d=await (await promise).json();render(card,d);if(d.kind!=='draft')speak(card,d);}
   catch(e){card.innerHTML='<div class="ans">⚠️ Could not reach the assistant. Is the app still running?</div>';}
 }
-function askText(q){const c=newTurn(q);const fd=new FormData();fd.append('question',q);fd.append('detail',detailMode?'1':'');handle(fetch('/api/ask_text',{method:'POST',body:fd}),c);}
+function askText(q){const c=newTurn(q);const fd=new FormData();fd.append('question',q);fd.append('detail',detailMode?'1':'');fd.append('mode',draftMode?'draft':'answer');handle(fetch('/api/ask_text',{method:'POST',body:fd}),c);}
 
 $("form").addEventListener('submit',e=>{e.preventDefault();const q=$("q").value.trim();if(q){$("q").value='';askText(q);}});
 $("chips").addEventListener('click',e=>{if(e.target.classList.contains('chip'))askText(e.target.textContent);});
@@ -247,8 +259,18 @@ let detailMode=false;
 function setSeg(){$("d-concise").classList.toggle('on',!detailMode);$("d-detail").classList.toggle('on',detailMode);}
 $("d-concise").addEventListener('click',()=>{detailMode=false;setSeg();});
 $("d-detail").addEventListener('click',()=>{detailMode=true;setSeg();});
+let draftMode=false;
+function setMode(){
+  $("m-answer").classList.toggle('on',!draftMode);
+  $("m-draft").classList.toggle('on',draftMode);
+  $("detseg").style.display=draftMode?'none':'flex';
+  $("q").placeholder=draftMode?"Describe what to draft — e.g. an email to a customer about life-certificate rules…":"Type your question, or tap the mic to speak…";
+}
+$("m-answer").addEventListener('click',()=>{draftMode=false;setMode();});
+$("m-draft").addEventListener('click',()=>{draftMode=true;setMode();});
 convo.addEventListener('click',async e=>{
   const t=e.target;
+  if(t.dataset.act==='copy'){const card=t.closest('.card');const txt=(card.__data&&card.__data.display)||'';navigator.clipboard.writeText(txt).then(()=>{t.textContent='✓ Copied';setTimeout(()=>{t.textContent='📋 Copy';},1500);}).catch(()=>{t.textContent='Copy failed';});return;}
   if(t.dataset.act==='etoggle'){t.parentElement.querySelector('.eform').classList.toggle('show');return;}
   if(t.dataset.act==='esend'){
     const box=t.closest('.emailbox'),card=t.closest('.card'),status=box.querySelector('.estatus');
@@ -256,7 +278,7 @@ convo.addEventListener('click',async e=>{
     if(!to){status.textContent='Please enter an email address.';return;}
     status.textContent='Sending…';
     const dd=card.__data,fd=new FormData();
-    fd.append('to',to);fd.append('text',dd.text);fd.append('question',dd.question);fd.append('source_label',dd.source_label);fd.append('source_url',dd.source_url);fd.append('language_code',lang);
+    fd.append('to',to);fd.append('text',dd.text);fd.append('question',dd.question);fd.append('source_label',dd.source_label);fd.append('source_url',dd.source_url);fd.append('language_code',lang);if(dd.isDraft)fd.append('plain','1');
     try{const r=await (await fetch('/api/email',{method:'POST',body:fd})).json();
       if(r.sent)status.textContent='✓ Emailed to '+to;
       else if(r.mailto){status.textContent='Opening your email app…';window.location.href=r.mailto;}
@@ -289,7 +311,7 @@ function stopAndSend(){
   if(!recording)return;recording=false;micBtn.classList.remove('rec');if(recTimer){clearTimeout(recTimer);recTimer=null;}
   hint.textContent="⏳ transcribing and searching…";
   let blob;try{blob=stopToWav();}catch(e){hint.textContent="⚠️ Recording error.";return;}
-  const c=newTurn("🎤 (voice question…)");const fd=new FormData();fd.append('audio',blob,'rec.wav');fd.append('detail',detailMode?'1':'');
+  const c=newTurn(draftMode?"🎤 (voice draft request…)":"🎤 (voice question…)");const fd=new FormData();fd.append('audio',blob,'rec.wav');fd.append('detail',detailMode?'1':'');fd.append('mode',draftMode?'draft':'answer');
   handle(fetch('/api/ask',{method:'POST',body:fd}),c);hint.textContent="Answers are drawn only from genuine PNB documents.";
 }
 micBtn.addEventListener('click',async()=>{
