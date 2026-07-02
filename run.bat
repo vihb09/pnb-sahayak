@@ -16,7 +16,7 @@ echo ================================================================
 echo    YOUR PUBLIC LINK WILL APPEAR JUST BELOW IN A FEW SECONDS.
 echo.
 echo    Look for a line like:   https://xxxx-xxxx.trycloudflare.com
-echo    Copy that whole line and send it to the Sarvam team.
+echo    Copy that whole line and share it with whoever needs to try the app.
 echo.
 echo    KEEP THIS WINDOW OPEN the whole time they are using it.
 echo    To stop sharing: just close this window.
