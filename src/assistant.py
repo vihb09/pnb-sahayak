@@ -92,6 +92,7 @@ NOT_FOUND_PHRASES = [
     "i am not provided", "unable to find", "no relevant information",
     "does not specify", "do not specify", "isn't specified",
     "cannot be determined", "unable to determine",
+    "not explicitly detailed", "not detailed", "not explicitly",
 ]
 _HINGLISH_WORDS = {"kab", "hai", "kya", "kaise", "kyun", "kyon", "nahi", "mujhe", "batao",
                    "chahiye", "kitna", "kitni", "karna", "krna", "mera", "meri", "hota",
