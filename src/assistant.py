@@ -214,6 +214,20 @@ def decide_reply(transcript, language_code, force_native=False):
                 out_target=language_code, mode=None, output_script=None)
 
 
+def plan_for_output(out_lang):
+    """Build a reply plan for an EXPLICITLY chosen output language (the answer-language
+    selector). Returns None for blank/'auto' so the caller keeps the question's language.
+    'hinglish' -> Hindi voice, code-mixed roman script; a language code -> that language,
+    native script."""
+    if not out_lang or out_lang == "auto":
+        return None
+    if out_lang == "hinglish":
+        return dict(is_english=False, style_label="Hinglish", voice_lang="hi-IN",
+                    trans_model="mayura:v1", in_source="auto", out_target="hi-IN",
+                    mode="code-mixed", output_script="roman")
+    return decide_reply("", out_lang, force_native=True)
+
+
 class Assistant:
     def __init__(self):
         self.kb = KnowledgeBase()
@@ -243,9 +257,10 @@ class Assistant:
             "timings": timings,
         }
 
-    def answer(self, question, language_code="en-IN", k=6, detail=False):
+    def answer(self, question, language_code="en-IN", k=6, detail=False, out_lang=None):
         timings = {}
-        plan = decide_reply(question, language_code)
+        in_plan = decide_reply(question, language_code)          # language of the QUESTION (for search)
+        plan = plan_for_output(out_lang) or in_plan              # language of the REPLY (may be overridden)
 
         # 1. Greeting / small talk (no ticket, no LLM)
         g = greeting_reply(question)
@@ -259,17 +274,17 @@ class Assistant:
 
         # Translate the question to English for searching.
         try:
-            if plan["is_english"]:
+            if in_plan["is_english"]:
                 query_en = question
             else:
                 t = time.time()
-                query_en = sc.translate(question, "en-IN", source_language_code=plan["in_source"],
-                                        model=plan["trans_model"])
+                query_en = sc.translate(question, "en-IN", source_language_code=in_plan["in_source"],
+                                        model=in_plan["trans_model"])
                 timings["translate_in_ms"] = int((time.time() - t) * 1000)
         except Exception:
             return self._reply(question, language_code, plan, timings, POLITE_OFFTOPIC, kind="offtopic")
 
-        if not plan["is_english"]:   # re-check meta on the translated text
+        if not in_plan["is_english"]:   # re-check meta on the translated text
             g = greeting_reply(query_en)
             if g:
                 return self._reply(question, language_code, plan, timings, g, kind="greeting")

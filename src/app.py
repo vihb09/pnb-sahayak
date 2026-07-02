@@ -28,6 +28,7 @@ from sarvamai import AsyncSarvamAI
 
 import sarvam_client as sc
 from assistant import Assistant, POLITE_OFFTOPIC, VOICE_LANGS
+from knowledge_base import MANIFEST
 from interaction_log import log_interaction, LOG_FILE
 from escalation import send_escalation
 from emailer import send_email
@@ -77,9 +78,38 @@ def info():
             "num_passages": len(bot.kb.chunks)}
 
 
+@app.get("/api/documents")
+def documents_api():
+    """The real PNB documents the assistant is built on, from the source manifest."""
+    counts = Counter(c["pdf"] for c in bot.kb.chunks)
+    try:
+        manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    except Exception:
+        manifest = []
+    docs = []
+    for m in manifest:
+        if not m.get("txt"):          # only the documents we actually indexed
+            continue
+        docs.append({
+            "label": m.get("label") or m["pdf"],
+            "url": m.get("url", ""),
+            "pdf": m["pdf"],
+            "pages": m.get("pages", 0),
+            "ocr": bool(m.get("ocr")),
+            "passages": counts.get(m["pdf"], 0),
+        })
+    docs.sort(key=lambda d: d["label"].lower())
+    return {"count": len(docs), "passages": sum(counts.values()), "documents": docs}
+
+
+@app.get("/documents", response_class=HTMLResponse)
+def documents_page():
+    return (WEB_DIR / "documents.html").read_text(encoding="utf-8")
+
+
 @app.post("/api/ask")
 async def ask(audio: UploadFile = File(...), detail: str = Form(""), mode: str = Form("answer"),
-              draft_lang: str = Form("")):
+              draft_lang: str = Form(""), answer_lang: str = Form("")):
     try:
         audio_bytes = await audio.read()
         t = time.time()
@@ -97,7 +127,8 @@ async def ask(audio: UploadFile = File(...), detail: str = Form(""), mode: str =
         if mode == "draft":
             result = bot.draft(transcript, draft_lang or heard["language_code"])
         else:
-            result = bot.answer(transcript, heard["language_code"], detail=_truthy(detail))
+            result = bot.answer(transcript, heard["language_code"], detail=_truthy(detail),
+                                out_lang=answer_lang)
         result["timings"]["listen_ms"] = listen_ms
         return JSONResponse(_finalize(result, "voice"))
     except Exception as e:
@@ -107,7 +138,7 @@ async def ask(audio: UploadFile = File(...), detail: str = Form(""), mode: str =
 
 @app.post("/api/ask_text")
 async def ask_text(question: str = Form(""), language_code: str = Form(""), detail: str = Form(""),
-                   mode: str = Form("answer"), draft_lang: str = Form("")):
+                   mode: str = Form("answer"), draft_lang: str = Form(""), answer_lang: str = Form("")):
     try:
         if not question.strip():
             return JSONResponse(_empty_reply(question, language_code or "en-IN"))
@@ -115,7 +146,7 @@ async def ask_text(question: str = Form(""), language_code: str = Form(""), deta
         if mode == "draft":
             result = bot.draft(question, draft_lang or language_code)
         else:
-            result = bot.answer(question, language_code, detail=_truthy(detail))
+            result = bot.answer(question, language_code, detail=_truthy(detail), out_lang=answer_lang)
         return JSONResponse(_finalize(result, "text"))
     except Exception as e:
         print("ERROR in /api/ask_text:", repr(e))
@@ -303,5 +334,6 @@ async def ws_transcribe(browser: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
-    print("PNB Sahayak is starting...  open  http://127.0.0.1:8000  in your browser.")
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    port = int(os.getenv("PORT", "8000"))
+    print(f"PNB Sahayak is starting...  open  http://127.0.0.1:{port}  in your browser.")
+    uvicorn.run(app, host="127.0.0.1", port=port)

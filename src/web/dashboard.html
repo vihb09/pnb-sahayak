@@ -6,33 +6,34 @@
 <title>PNB Sahayak — Governance Dashboard</title>
 <style>
   :root{
-    --maroon:#6d1a2d;--maroon-2:#8e2440;--maroon-dark:#4a0f1f;--gold:#e0a82e;--gold-soft:#f6d98a;
-    --bg:#0f1116;--panel:#171a21;--panel-2:#1e222c;--line:#2a2f3a;
-    --ink:#eef0f4;--muted:#9aa3b2;--green:#43c07a;--amber:#e0a82e;--red:#ef5a6b;
+    /* Sarvam palette — warm cream + brand orange (matches the decks) */
+    --maroon:#D5620A;--maroon-2:#EC7A12;--maroon-dark:#B45309;--gold:#EC7A12;--gold-soft:#C2410C;
+    --bg:#F7F5F2;--panel:#FFFFFF;--panel-2:#F3EFE9;--line:#E7E2DA;
+    --ink:#1A1A1A;--muted:#6B7280;--green:#15925A;--amber:#D5620A;--red:#DC3545;
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;
-    background:radial-gradient(1200px 700px at 80% -10%, #2a1420 0%, var(--bg) 55%);color:var(--ink);min-height:100vh;}
+    background:radial-gradient(1200px 700px at 80% -10%, #FBEAD8 0%, var(--bg) 55%);color:var(--ink);min-height:100vh;}
   header{display:flex;align-items:center;gap:14px;padding:16px 22px;border-bottom:1px solid var(--line);
-    background:rgba(20,14,20,.6);backdrop-filter:blur(8px);position:sticky;top:0;z-index:5;}
+    background:rgba(255,255,255,.78);backdrop-filter:blur(8px);position:sticky;top:0;z-index:5;}
   .logo{width:44px;height:44px;border-radius:13px;flex:0 0 auto;background:linear-gradient(135deg,var(--maroon-2),var(--maroon-dark));
-    color:var(--gold-soft);font-weight:800;font-size:17px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(142,36,64,.5);}
+    color:#fff;font-weight:800;font-size:17px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(236,122,18,.35);}
   header h1{margin:0;font-size:18px;} header .sub{margin:2px 0 0;font-size:12.5px;color:var(--muted);}
   .nav{margin-left:auto;} .nav a{color:var(--muted);text-decoration:none;font-size:12.5px;margin-left:16px;border-bottom:1px dashed transparent;}
   .nav a:hover{color:var(--gold-soft);border-color:var(--gold-soft);}
   main{max-width:1000px;margin:0 auto;padding:22px 18px 60px;}
   .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:0 8px 24px rgba(0,0,0,.28);}
-  .card .num{font-size:34px;font-weight:800;background:linear-gradient(90deg,#fff,var(--gold-soft));-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1.1;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:0 8px 24px rgba(20,30,50,.08);}
+  .card .num{font-size:34px;font-weight:800;background:linear-gradient(90deg,#1A1A1A,#D5620A);-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1.1;}
   .card.warn .num{background:none;color:var(--red);-webkit-text-fill-color:var(--red);}
   .card .lbl{font-size:12.5px;color:var(--muted);margin-top:4px;}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;}
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:0 8px 24px rgba(0,0,0,.28);}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:0 8px 24px rgba(20,30,50,.08);}
   .panel h2{font-size:14px;margin:0 0 12px;color:var(--gold-soft);text-transform:uppercase;letter-spacing:.5px;}
   .bar-row{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:14px;}
   .bar-row .name{width:92px;flex:0 0 auto;color:var(--ink);}
   .bar-wrap{flex:1;background:var(--panel-2);border-radius:6px;overflow:hidden;height:18px;border:1px solid var(--line);}
-  .bar{height:100%;background:linear-gradient(90deg,var(--maroon-2),var(--gold));}
+  .bar{display:block;height:100%;background:linear-gradient(90deg,var(--maroon-2),var(--gold));}
   .bar.High{background:var(--green);}.bar.Medium{background:var(--amber);}.bar.Low{background:var(--red);}
   .bar-row .cnt{width:34px;text-align:right;color:var(--muted);flex:0 0 auto;}
   table{width:100%;border-collapse:collapse;font-size:13.5px;}
@@ -57,7 +58,7 @@
 <header>
   <div class="logo">पं</div>
   <div><h1>Governance Dashboard</h1><div class="sub">Live oversight of questions, languages, confidence & escalations</div></div>
-  <div class="nav"><a href="/">← Assistant</a><a href="/stream">Live</a></div>
+  <div class="nav"><a href="/">← Assistant</a></div>
 </header>
 <main>
   <div class="cards">

@@ -6,27 +6,30 @@
 <title>PNB Sahayak — AI Policy Assistant</title>
 <style>
   :root{
-    --maroon:#6d1a2d; --maroon-2:#8e2440; --maroon-dark:#4a0f1f; --gold:#e0a82e; --gold-soft:#f6d98a;
-    --bg:#0f1116; --panel:#171a21; --panel-2:#1e222c; --line:#2a2f3a;
-    --ink:#eef0f4; --muted:#9aa3b2; --green:#43c07a; --amber:#e0a82e; --red:#ef5a6b;
-    --user:#7a2138;
+    /* Sarvam palette — warm cream + brand orange (matches the decks) */
+    --maroon:#D5620A; --maroon-2:#EC7A12; --maroon-dark:#B45309; --gold:#EC7A12; --gold-soft:#C2410C;
+    --bg:#F7F5F2; --panel:#FFFFFF; --panel-2:#F3EFE9; --line:#E7E2DA;
+    --ink:#1A1A1A; --muted:#6B7280; --green:#15925A; --amber:#D5620A; --red:#DC3545;
+    --user:#EC7A12;
   }
   *{box-sizing:border-box;}
   html,body{height:100%;}
   body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
-    background:radial-gradient(1200px 700px at 80% -10%, #2a1420 0%, var(--bg) 55%);
+    background:radial-gradient(1200px 700px at 80% -10%, #FBEAD8 0%, var(--bg) 55%);
     color:var(--ink);display:flex;flex-direction:column;min-height:100vh;}
 
   header{display:flex;align-items:center;gap:14px;padding:16px 22px;
-    border-bottom:1px solid var(--line);background:rgba(20,14,20,.6);backdrop-filter:blur(8px);position:sticky;top:0;z-index:5;}
+    border-bottom:1px solid var(--line);background:rgba(255,255,255,.78);backdrop-filter:blur(8px);position:sticky;top:0;z-index:5;}
   .logo{width:44px;height:44px;border-radius:13px;flex:0 0 auto;
-    background:linear-gradient(135deg,var(--maroon-2),var(--maroon-dark));color:var(--gold-soft);
+    background:linear-gradient(135deg,var(--maroon-2),var(--maroon-dark));color:#fff;
     font-weight:800;font-size:17px;display:flex;align-items:center;justify-content:center;
-    box-shadow:0 4px 16px rgba(142,36,64,.5);}
+    box-shadow:0 4px 16px rgba(236,122,18,.35);}
   header h1{margin:0;font-size:18px;letter-spacing:.2px;}
   header .sub{margin:2px 0 0;font-size:12.5px;color:var(--muted);}
   header .status{margin-left:auto;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:7px;
     border:1px solid var(--line);padding:6px 11px;border-radius:999px;background:var(--panel);}
+  header .status a.doclink{color:var(--gold-soft);text-decoration:underline;cursor:pointer;}
+  header .status a.doclink:hover{color:var(--maroon);}
   .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);}
   header .nav a{color:var(--muted);text-decoration:none;font-size:12.5px;margin-left:14px;border-bottom:1px dashed transparent;}
   header .nav a:hover{color:var(--gold-soft);border-color:var(--gold-soft);}
@@ -36,7 +39,7 @@
   /* welcome / hero */
   .hero{text-align:center;padding:34px 10px 8px;}
   .hero h2{font-size:26px;margin:0 0 6px;font-weight:700;
-    background:linear-gradient(90deg,#fff,var(--gold-soft));-webkit-background-clip:text;background-clip:text;color:transparent;}
+    background:linear-gradient(90deg,#1A1A1A,#D5620A);-webkit-background-clip:text;background-clip:text;color:transparent;}
   .hero p{color:var(--muted);margin:0 auto;max-width:560px;font-size:14.5px;line-height:1.6;}
 
   .chips{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin:22px auto 0;max-width:720px;}
@@ -49,14 +52,14 @@
   @keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
   .q{display:flex;justify-content:flex-end;margin-bottom:12px;}
   .q .bubble{background:linear-gradient(135deg,var(--user),var(--maroon-dark));color:#fff;
-    padding:11px 16px;border-radius:16px 16px 4px 16px;max-width:78%;font-size:15.5px;box-shadow:0 6px 18px rgba(0,0,0,.35);}
-  .q .lang{font-size:11px;color:var(--gold-soft);opacity:.85;margin-top:5px;display:block;}
+    padding:11px 16px;border-radius:16px 16px 4px 16px;max-width:78%;font-size:15.5px;box-shadow:0 6px 18px rgba(180,83,9,.22);}
+  .q .lang{font-size:11px;color:rgba(255,255,255,.9);opacity:.95;margin-top:5px;display:block;}
 
   .a{display:flex;gap:12px;}
   .a .av{width:36px;height:36px;border-radius:10px;flex:0 0 auto;background:linear-gradient(135deg,var(--maroon-2),var(--maroon-dark));
-    color:var(--gold-soft);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;}
+    color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;}
   .card{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:4px 16px 16px 16px;
-    padding:16px 18px;box-shadow:0 8px 26px rgba(0,0,0,.28);}
+    padding:16px 18px;box-shadow:0 8px 26px rgba(20,30,50,.08);}
 
   /* pipeline */
   .pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
@@ -67,7 +70,7 @@
   .pipe.run .pstep:nth-child(1){animation-delay:0s}.pipe.run .pstep:nth-child(2){animation-delay:.3s}
   .pipe.run .pstep:nth-child(3){animation-delay:.6s}.pipe.run .pstep:nth-child(4){animation-delay:.9s}
   .pipe.run .pstep:nth-child(5){animation-delay:1.2s}
-  @keyframes blink{0%,100%{border-color:var(--line);}50%{border-color:var(--gold);color:var(--gold-soft);box-shadow:0 0 12px rgba(224,168,46,.25);}}
+  @keyframes blink{0%,100%{border-color:var(--line);}50%{border-color:var(--gold);color:var(--gold-soft);box-shadow:0 0 12px rgba(236,122,18,.22);}}
   @keyframes blink .pd{}
 
   .ans{font-size:17px;line-height:1.65;margin:2px 0 4px;}
@@ -86,8 +89,8 @@
   .badge{font-size:11.5px;font-weight:700;padding:5px 11px;border-radius:999px;color:#fff;}
   .badge.High{background:var(--green);}.badge.Medium{background:var(--amber);}.badge.Low{background:var(--red);}
   .tag{font-size:11.5px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 11px;}
-  .flag{background:rgba(239,90,107,.12);border:1px solid rgba(239,90,107,.4);color:#ffb3bd;border-radius:10px;padding:8px 12px;font-size:12.5px;}
-  .info{background:rgba(224,168,46,.1);border:1px solid rgba(224,168,46,.35);color:var(--gold-soft);border-radius:10px;padding:8px 12px;font-size:12.5px;}
+  .flag{background:rgba(220,53,69,.10);border:1px solid rgba(220,53,69,.35);color:#B4232F;border-radius:10px;padding:8px 12px;font-size:12.5px;}
+  .info{background:rgba(236,122,18,.10);border:1px solid rgba(236,122,18,.35);color:#B45309;border-radius:10px;padding:8px 12px;font-size:12.5px;}
   audio{width:100%;margin-top:12px;height:34px;}
   .voice{font-size:12px;color:var(--muted);margin-top:8px;}
   .playbtn{display:inline-block;cursor:pointer;background:var(--maroon-2);color:#fff;border-radius:999px;padding:6px 14px;font-size:12.5px;}
@@ -99,14 +102,14 @@
   .composer{position:fixed;left:0;right:0;bottom:0;padding:14px 16px 18px;
     background:linear-gradient(180deg,transparent, var(--bg) 34%);}
   .composer .inner{max-width:900px;margin:0 auto;display:flex;gap:10px;align-items:center;
-    background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:8px 8px 8px 18px;box-shadow:0 10px 30px rgba(0,0,0,.4);}
+    background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:8px 8px 8px 18px;box-shadow:0 10px 30px rgba(20,30,50,.12);}
   .composer input{flex:1;background:transparent;border:none;outline:none;color:var(--ink);font-size:15.5px;}
   .composer input::placeholder{color:var(--muted);}
   .iconbtn{width:44px;height:44px;border-radius:50%;border:none;cursor:pointer;flex:0 0 auto;
     display:flex;align-items:center;justify-content:center;font-size:18px;transition:.15s;}
   .send{background:var(--panel-2);color:var(--gold-soft);}
   .send:hover{background:var(--line);}
-  .mic{background:linear-gradient(135deg,var(--maroon-2),var(--maroon-dark));color:#fff;box-shadow:0 4px 14px rgba(142,36,64,.5);}
+  .mic{background:linear-gradient(135deg,var(--maroon-2),var(--maroon-dark));color:#fff;box-shadow:0 4px 14px rgba(236,122,18,.45);}
   .mic.rec{animation:pulse 1.1s infinite;background:linear-gradient(135deg,var(--red),#a01b2c);}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(239,90,107,.5);}70%{box-shadow:0 0 0 16px rgba(239,90,107,0);}100%{box-shadow:0 0 0 0 rgba(239,90,107,0);}}
   .hint{max-width:900px;margin:8px auto 0;text-align:center;font-size:12px;color:var(--muted);min-height:16px;}
@@ -137,7 +140,7 @@
     <div class="sub">AI Policy Assistant · Hindi · English · Hinglish · +8 languages</div>
   </div>
   <div class="status"><span class="dot"></span><span id="status">Ready</span></div>
-  <div class="nav"><a href="/dashboard">Dashboard</a><a href="/stream">Live</a></div>
+  <div class="nav"><a href="/dashboard">Dashboard</a></div>
 </header>
 
 <main>
@@ -161,6 +164,7 @@
       <button type="button" id="m-answer" class="on">💬 Answer</button>
       <button type="button" id="m-draft">✍️ Draft</button>
     </div>
+    <label id="ansLangWrap" class="draftlangwrap show" title="Language of the answer"><span>🗣️</span><select id="ansLang" class="draftlang"></select></label>
     <label id="draftLangWrap" class="draftlangwrap" title="Language for the draft"><span>🌐</span><select id="draftLang" class="draftlang"></select></label>
   </div>
   <form class="inner" id="form">
@@ -177,10 +181,11 @@ const STAGES=["🎧 Listen","🌐 Translate","🔎 Search","🧠 Answer","🔊 S
 const $=id=>document.getElementById(id);
 const convo=$("convo"), hint=$("hint"), micBtn=$("mic");
 
-fetch('/api/info').then(r=>r.json()).then(d=>{$("status").textContent="Ready · "+d.num_documents+" documents";}).catch(()=>{$("status").textContent="Ready";});
+fetch('/api/info').then(r=>r.json()).then(d=>{$("status").innerHTML='Ready · <a href="/documents" target="_blank" rel="noopener" class="doclink" title="See the documents the assistant is built on">'+d.num_documents+' documents</a>';}).catch(()=>{$("status").textContent="Ready";});
 
 function esc(s){return (s||'').toString().replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function scroll(){window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});}
+function b64ToWavBlob(b64){const bin=atob(b64);const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);return new Blob([bytes],{type:'audio/wav'});}
 
 function newTurn(question){
   $("hero").style.display="none";
@@ -260,7 +265,9 @@ async function speak(card,d){
   try{const a=await (await fetch('/api/speak',{method:'POST',body:fd})).json();
     if(a.audio_base64){
       const au=$("au-"+card.__id);
-      au.src='data:audio/wav;base64,'+a.audio_base64;au.style.display='block';
+      if(au.dataset.url){try{URL.revokeObjectURL(au.dataset.url);}catch(_){}}
+      const url=URL.createObjectURL(b64ToWavBlob(a.audio_base64));
+      au.dataset.url=url;au.src=url;au.preload='auto';au.style.display='block';au.load();
       card.__timings.speak_ms=a.speak_ms;drawTimings(card);
       au.play().then(()=>{v.textContent='';}).catch(()=>{
         v.innerHTML='<span class="playbtn">🔊 Tap to hear the answer</span>';
@@ -276,7 +283,7 @@ async function handle(promise,card){
   try{const d=await (await promise).json();render(card,d);if(d.kind==='answer')speak(card,d);}
   catch(e){card.innerHTML='<div class="ans">⚠️ Could not reach the assistant. Is the app still running?</div>';}
 }
-function askText(q){const c=newTurn(q);const fd=new FormData();fd.append('question',q);fd.append('mode',draftMode?'draft':'answer');if(draftMode)fd.append('draft_lang',$("draftLang").value);handle(fetch('/api/ask_text',{method:'POST',body:fd}),c);}
+function askText(q){const c=newTurn(q);const fd=new FormData();fd.append('question',q);fd.append('mode',draftMode?'draft':'answer');if(draftMode)fd.append('draft_lang',$("draftLang").value);else fd.append('answer_lang',$("ansLang").value);handle(fetch('/api/ask_text',{method:'POST',body:fd}),c);}
 
 let _audioOK=false;
 function unlockAudio(){ if(_audioOK)return; _audioOK=true;
@@ -285,11 +292,14 @@ $("form").addEventListener('submit',e=>{e.preventDefault();unlockAudio();const q
 $("chips").addEventListener('click',e=>{if(e.target.classList.contains('chip')){unlockAudio();askText(e.target.textContent);}});
 
 const EMAIL_LANGS=[["en-IN","English"],["hi-IN","Hindi"],["bn-IN","Bengali"],["gu-IN","Gujarati"],["kn-IN","Kannada"],["ml-IN","Malayalam"],["mr-IN","Marathi"],["od-IN","Odia"],["pa-IN","Punjabi"],["ta-IN","Tamil"],["te-IN","Telugu"]];
+const ANS_LANGS=[["auto","Auto — my language"],["en-IN","English"],["hi-IN","Hindi"],["hinglish","Hinglish"],["bn-IN","Bengali"],["gu-IN","Gujarati"],["kn-IN","Kannada"],["ml-IN","Malayalam"],["mr-IN","Marathi"],["od-IN","Odia"],["pa-IN","Punjabi"],["ta-IN","Tamil"],["te-IN","Telugu"]];
+$("ansLang").innerHTML=ANS_LANGS.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('');
 $("draftLang").innerHTML=EMAIL_LANGS.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('');
 let draftMode=false;
 function setMode(){
   $("m-answer").classList.toggle('on',!draftMode);
   $("m-draft").classList.toggle('on',draftMode);
+  $("ansLangWrap").classList.toggle('show',!draftMode);
   $("draftLangWrap").classList.toggle('show',draftMode);
   $("q").placeholder=draftMode?"Draft, summarise or make notes — e.g. “key points of the life-certificate policy”":"Type your question, or tap the mic to speak…";
 }
@@ -302,7 +312,7 @@ convo.addEventListener('click',async e=>{
     if(!card.__q||card.__level===target)return;
     if(card.__variants&&card.__variants[target]){card.__level=target;render(card,card.__variants[target]);speak(card,card.__variants[target]);return;}
     t.disabled=true;t.textContent=(target==='detailed'?'Detailed':'Concise')+' …';
-    const fd=new FormData();fd.append('question',card.__q);fd.append('language_code',card.__lang||'');fd.append('detail',target==='detailed'?'1':'');
+    const fd=new FormData();fd.append('question',card.__q);fd.append('language_code',card.__lang||'');fd.append('detail',target==='detailed'?'1':'');fd.append('answer_lang',$("ansLang").value);
     try{const nd=await (await fetch('/api/ask_text',{method:'POST',body:fd})).json();nd.__level=target;card.__variants=card.__variants||{};card.__variants[target]=nd;card.__level=target;render(card,nd);speak(card,nd);}
     catch(err){t.disabled=false;t.textContent=(target==='detailed'?'Detailed':'Concise');}
     return;
@@ -348,7 +358,7 @@ function stopAndSend(){
   if(!recording)return;recording=false;micBtn.classList.remove('rec');if(recTimer){clearTimeout(recTimer);recTimer=null;}
   hint.textContent="⏳ transcribing and searching…";
   let blob;try{blob=stopToWav();}catch(e){hint.textContent="⚠️ Recording error.";return;}
-  const c=newTurn(draftMode?"🎤 (voice draft request…)":"🎤 (voice question…)");const fd=new FormData();fd.append('audio',blob,'rec.wav');fd.append('mode',draftMode?'draft':'answer');if(draftMode)fd.append('draft_lang',$("draftLang").value);
+  const c=newTurn(draftMode?"🎤 (voice draft request…)":"🎤 (voice question…)");const fd=new FormData();fd.append('audio',blob,'rec.wav');fd.append('mode',draftMode?'draft':'answer');if(draftMode)fd.append('draft_lang',$("draftLang").value);else fd.append('answer_lang',$("ansLang").value);
   handle(fetch('/api/ask',{method:'POST',body:fd}),c);hint.textContent="Answers are drawn only from genuine PNB documents.";
 }
 micBtn.addEventListener('click',async()=>{
