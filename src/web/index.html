@@ -267,11 +267,12 @@ async function speak(card,d){
       const au=$("au-"+card.__id);
       if(au.dataset.url){try{URL.revokeObjectURL(au.dataset.url);}catch(_){}}
       const url=URL.createObjectURL(b64ToWavBlob(a.audio_base64));
-      au.dataset.url=url;au.src=url;au.preload='auto';au.style.display='block';au.load();
+      au.dataset.url=url;au.src=url;au.style.display='block';   // setting src auto-loads; NO au.load() (it aborts play)
       card.__timings.speak_ms=a.speak_ms;drawTimings(card);
-      au.play().then(()=>{v.textContent='';}).catch(()=>{
+      const startPlay=()=>au.play().then(()=>{v.textContent='';});
+      startPlay().catch(()=>{                                    // autoplay blocked (or interrupted) -> offer a clear tap
         v.innerHTML='<span class="playbtn">🔊 Tap to hear the answer</span>';
-        const b=v.firstChild;if(b)b.onclick=()=>{au.play().then(()=>{v.textContent='';}).catch(()=>{});};
+        const b=v.firstChild;if(b)b.onclick=()=>{startPlay().catch(()=>{});};
       });
     } else v.textContent="(voice unavailable)";
   }catch(e){v.textContent="(voice unavailable)";}
