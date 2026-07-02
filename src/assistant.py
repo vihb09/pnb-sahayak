@@ -42,6 +42,8 @@ SYSTEM_PROMPT = (
     "2. If the CONTEXT does not explicitly and specifically answer the QUESTION, reply with "
     "exactly NO_INFO and nothing else. Do NOT write explanations like 'not specified'.\n"
     "3. Do not mention document numbers in your answer text.\n"
+    "4. Answer directly. Do NOT begin with 'According to the context', 'Based on the context', "
+    "'The context states', 'As per the document' or any similar preamble.\n"
     "Otherwise reply in ENGLISH in 1 to 2 short sentences suitable for reading aloud, then on a "
     "final separate line write 'CITED: N' with the single Document number you used.")
 
@@ -52,6 +54,8 @@ DETAIL_SYSTEM_PROMPT = (
     "1. Never use outside or general knowledge; if it is not in the CONTEXT, do not state it.\n"
     "2. If the CONTEXT does not answer the QUESTION, reply with exactly NO_INFO and nothing else.\n"
     "3. Do not mention document numbers in your answer text.\n"
+    "4. Answer directly. Do NOT begin with 'According to the context', 'Based on the context', "
+    "'The context states', 'As per the document' or any similar preamble.\n"
     "Otherwise give a THOROUGH answer in ENGLISH — up to 5-6 sentences or a few short bullet "
     "points — covering all the relevant details, conditions, figures and steps in the CONTEXT. "
     "Then on a final separate line write 'CITED: N' with the single Document number you used.")
@@ -148,9 +152,17 @@ def _strip_tags(text):
         return ""
     text = re.sub(r"(?i)\bCITED\b\s*:?\s*#?\d+(?:\s*,\s*#?\d+)*", "", text)
     text = re.sub(r"(?i)[\[(]\s*doc(?:ument)?s?\.?\s*#?\d+\s*[\])]", "", text)
+    # Drop a leading "based on/according to the context" preamble the model sometimes adds
+    # (done on the English answer, before translation, so it's removed in every language).
+    text = re.sub(r"(?i)^\s*(?:based on|according to|as per|per)\s+the\s+(?:provided\s+|given\s+)?"
+                  r"(?:context|document|documents|passages?)[\s,:\-]+", "", text)
+    text = re.sub(r"(?i)^\s*the\s+(?:context|documents?|passages?)\s+"
+                  r"(?:states?|says?|indicates?|mentions?|shows?|provides?|specif(?:y|ies))\s*(?:that\s+)?[,:]?\s*", "", text)
     text = re.sub(r"[ \t]{2,}", " ", text)
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    return text.strip()
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    if text and text[:1].islower():
+        text = text[0].upper() + text[1:]
+    return text
 
 
 def _is_capability(text):
