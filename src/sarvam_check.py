@@ -1,5 +1,5 @@
 """
-hello_sarvam.py  —  Phase 1 connection test.
+sarvam_check.py  —  Sarvam connection test.
 
 Proves two things in one round-trip:
   1. Bulbul (text-to-speech): we send a sentence, Sarvam sends back spoken audio.
@@ -26,7 +26,7 @@ BASE_URL = "https://api.sarvam.ai"
 AUTH_HEADER = {"api-subscription-key": API_KEY or ""}
 
 SAMPLE_TEXT = "Hello Sarvam. The PNB voice assistant is now connected."
-AUDIO_FILE = PROJECT_DIR / "data" / "hello_sarvam.wav"
+AUDIO_FILE = PROJECT_DIR / "data" / "sarvam_check.wav"
 
 
 def fail(message, response=None):
@@ -86,7 +86,7 @@ def main():
             stt = requests.post(
                 f"{BASE_URL}/speech-to-text",
                 headers=AUTH_HEADER,
-                files={"file": ("hello_sarvam.wav", audio, "audio/wav")},
+                files={"file": ("sarvam_check.wav", audio, "audio/wav")},
                 data={"model": "saaras:v3"},
                 timeout=60,
             )

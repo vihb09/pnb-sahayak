@@ -20,7 +20,7 @@ desktop.ini
 
 # ===== Audio test scratch files (we'll regenerate these anytime) =====
 *.wav.tmp
-data/hello_sarvam.wav
+data/sarvam_check.wav
 
 # ===== Real PNB documents (copyrighted — keep LOCAL, never commit) =====
 # Both the original PDFs and the extracted .txt hold PNB's copyrighted content.

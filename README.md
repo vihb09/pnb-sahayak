@@ -12,7 +12,7 @@ bank's internal policies. The assistant:
 - and when it **isn't confident, it doesn't guess** — it raises a follow-up **ticket**
   via an **n8n** workflow.
 
-It also includes a **governance dashboard** and an **optional real-time streaming** demo.
+It also includes a **governance dashboard** and an **optional real-time streaming** mode (live captions).
 
 Built on the **Sarvam** AI stack. Runs locally with Python + FastAPI.
 
@@ -94,7 +94,7 @@ py src/ingest/ocr_pdfs.py             # OCR the 2 scanned PDFs (Sarvam Vision)
 py src/app.py
 ```
 Open **http://127.0.0.1:8000** in Chrome or Edge. Click the mic (allow it the first
-time) or type a question. Footer links go to the **dashboard** and the **streaming** demo.
+time) or type a question. A link at the top opens the **governance dashboard**.
 Stop with **Ctrl + C**.
 
 ---
@@ -112,7 +112,7 @@ PnB Assistant/
 │  ├─ assistant.py           ← the answer brain (grounding, citations, language lock, drafting)
 │  ├─ escalation.py          ← unanswered → ticket → n8n
 │  ├─ interaction_log.py     ← logs every interaction (feeds the dashboard)
-│  ├─ hello_sarvam.py        ← Phase-1 connection test
+│  ├─ sarvam_check.py        ← Sarvam connection test
 │  ├─ ingest/                ← scripts that rebuild the knowledge base
 │  └─ web/                   ← index.html, dashboard.html, stream.html
 ├─ docs/
@@ -128,4 +128,4 @@ PnB Assistant/
   answers cover 11 languages, with text answers possible for more.
 - **Privacy:** your API key lives only in `.env` (git-ignored); copyrighted PDFs/text and
   runtime logs are git-ignored too.
-- This is a **demonstration project** built from a public PNB Generative-AI tender use case.
+- Built from a real, public PNB Generative-AI tender use case.
