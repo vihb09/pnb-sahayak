@@ -119,10 +119,7 @@ PnB Assistant/
 │  ├─ architecture.md        ← diagrams + Sarvam API rationale
 │  ├─ diagrams/              ← rendered PNG exports of every diagram (for slides)
 │  ├─ sarvam-api-reference.md← verified endpoints/models
-│  ├─ document-guide.md      ← what each of the 56 documents is
-│  ├─ question-bank.md       ← 12 questions × 11 languages
-│  ├─ question-answer-key.md ← expected answers + sources
-│  └─ demo-script.md         ← 3–5 minute demo narration
+│  └─ document-guide.md      ← what each of the 56 documents is
 └─ data/policies/            ← (git-ignored) downloaded PDFs + extracted text + manifest
 ```
 
