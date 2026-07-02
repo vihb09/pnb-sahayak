@@ -300,10 +300,10 @@ convo.addEventListener('click',async e=>{
   if(t.dataset.act==='setlvl'){
     const card=t.closest('.card'),target=t.dataset.lvl;
     if(!card.__q||card.__level===target)return;
-    if(card.__variants&&card.__variants[target]){card.__level=target;render(card,card.__variants[target]);return;}
+    if(card.__variants&&card.__variants[target]){card.__level=target;render(card,card.__variants[target]);speak(card,card.__variants[target]);return;}
     t.disabled=true;t.textContent=(target==='detailed'?'Detailed':'Concise')+' …';
     const fd=new FormData();fd.append('question',card.__q);fd.append('language_code',card.__lang||'');fd.append('detail',target==='detailed'?'1':'');
-    try{const nd=await (await fetch('/api/ask_text',{method:'POST',body:fd})).json();nd.__level=target;card.__variants=card.__variants||{};card.__variants[target]=nd;card.__level=target;render(card,nd);}
+    try{const nd=await (await fetch('/api/ask_text',{method:'POST',body:fd})).json();nd.__level=target;card.__variants=card.__variants||{};card.__variants[target]=nd;card.__level=target;render(card,nd);speak(card,nd);}
     catch(err){t.disabled=false;t.textContent=(target==='detailed'?'Detailed':'Concise');}
     return;
   }
