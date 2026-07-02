@@ -138,6 +138,7 @@ def speak(text: str, target_language_code: str = "en-IN", speaker: str = "shubh"
             "model": "bulbul:v3",
             "pace": pace,
             "enable_preprocessing": True,
+            "speech_sample_rate": 16000,   # smaller WAV -> quicker to stream over a tunnel
         },
         timeout=90,
     )

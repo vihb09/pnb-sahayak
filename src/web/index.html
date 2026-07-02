@@ -90,6 +90,8 @@
   .info{background:rgba(224,168,46,.1);border:1px solid rgba(224,168,46,.35);color:var(--gold-soft);border-radius:10px;padding:8px 12px;font-size:12.5px;}
   audio{width:100%;margin-top:12px;height:34px;}
   .voice{font-size:12px;color:var(--muted);margin-top:8px;}
+  .playbtn{display:inline-block;cursor:pointer;background:var(--maroon-2);color:#fff;border-radius:999px;padding:6px 14px;font-size:12.5px;}
+  .playbtn:hover{background:var(--maroon);}
   .timings{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
   .timings span{font-size:11px;color:var(--muted);background:var(--panel-2);border-radius:7px;padding:3px 8px;}
 
@@ -256,8 +258,15 @@ async function speak(card,d){
   const v=$("v-"+card.__id);v.textContent="🔊 preparing voice…";
   const fd=new FormData();fd.append('text',d.answer);fd.append('language_code',d.tts_lang);
   try{const a=await (await fetch('/api/speak',{method:'POST',body:fd})).json();
-    if(a.audio_base64){const au=$("au-"+card.__id);au.src='data:audio/wav;base64,'+a.audio_base64;au.style.display='block';v.textContent='';card.__timings.speak_ms=a.speak_ms;drawTimings(card);au.play().catch(()=>{});}
-    else v.textContent="(voice unavailable)";
+    if(a.audio_base64){
+      const au=$("au-"+card.__id);
+      au.src='data:audio/wav;base64,'+a.audio_base64;au.style.display='block';
+      card.__timings.speak_ms=a.speak_ms;drawTimings(card);
+      au.play().then(()=>{v.textContent='';}).catch(()=>{
+        v.innerHTML='<span class="playbtn">🔊 Tap to hear the answer</span>';
+        const b=v.firstChild;if(b)b.onclick=()=>{au.play().then(()=>{v.textContent='';}).catch(()=>{});};
+      });
+    } else v.textContent="(voice unavailable)";
   }catch(e){v.textContent="(voice unavailable)";}
 }
 
@@ -269,8 +278,11 @@ async function handle(promise,card){
 }
 function askText(q){const c=newTurn(q);const fd=new FormData();fd.append('question',q);fd.append('mode',draftMode?'draft':'answer');if(draftMode)fd.append('draft_lang',$("draftLang").value);handle(fetch('/api/ask_text',{method:'POST',body:fd}),c);}
 
-$("form").addEventListener('submit',e=>{e.preventDefault();const q=$("q").value.trim();if(q){$("q").value='';askText(q);}});
-$("chips").addEventListener('click',e=>{if(e.target.classList.contains('chip'))askText(e.target.textContent);});
+let _audioOK=false;
+function unlockAudio(){ if(_audioOK)return; _audioOK=true;
+  try{const a=new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=");a.volume=0;a.play().catch(()=>{});}catch(e){} }
+$("form").addEventListener('submit',e=>{e.preventDefault();unlockAudio();const q=$("q").value.trim();if(q){$("q").value='';askText(q);}});
+$("chips").addEventListener('click',e=>{if(e.target.classList.contains('chip')){unlockAudio();askText(e.target.textContent);}});
 
 const EMAIL_LANGS=[["en-IN","English"],["hi-IN","Hindi"],["bn-IN","Bengali"],["gu-IN","Gujarati"],["kn-IN","Kannada"],["ml-IN","Malayalam"],["mr-IN","Marathi"],["od-IN","Odia"],["pa-IN","Punjabi"],["ta-IN","Tamil"],["te-IN","Telugu"]];
 $("draftLang").innerHTML=EMAIL_LANGS.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('');
@@ -340,6 +352,7 @@ function stopAndSend(){
   handle(fetch('/api/ask',{method:'POST',body:fd}),c);hint.textContent="Answers are drawn only from genuine PNB documents.";
 }
 micBtn.addEventListener('click',async()=>{
+  unlockAudio();
   if(recording){stopAndSend();return;}
   try{await startRecording();recording=true;micBtn.classList.add('rec');hint.textContent="🔴 Listening… tap the mic again to stop.";recTimer=setTimeout(stopAndSend,20000);}
   catch(err){hint.textContent=(err&&err.name==='NotAllowedError')?"⚠️ Microphone blocked — allow it in the address bar, or just type.":"⚠️ No microphone found ("+(err&&err.name)+") — you can type instead.";}
