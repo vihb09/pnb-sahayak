@@ -168,17 +168,39 @@ async def speak(text: str = Form(...), language_code: str = Form("en-IN")):
 @app.post("/api/email")
 async def email(to: str = Form(...), text: str = Form(...), question: str = Form(""),
                 source_label: str = Form(""), source_url: str = Form(""),
-                language_code: str = Form("en-IN"), plain: str = Form("")):
+                language_code: str = Form("en-IN"), plain: str = Form(""),
+                display_text: str = Form(""), display_lang: str = Form("")):
     """Email an answer (or a draft), translated into the chosen language. Sends via SMTP
     if configured, otherwise returns a mailto link for the browser to open."""
     try:
         # Assemble the English email, then translate the WHOLE thing so the subject and
         # body share one language. (The source URL is added afterwards, untranslated.)
+        # Prefer the text already in the email language (display_text) so nothing is re-translated.
+        use_display = bool(display_text.strip()) and display_lang and display_lang == language_code
+        _en = (language_code or "en").lower().startswith("en")
+
+        def _tr(txt):
+            if not txt or _en:
+                return txt
+            model = "mayura:v1" if language_code in VOICE_LANGS else "sarvam-translate:v1"
+            try:
+                return sc.translate(txt, language_code, source_language_code="en-IN", model=model)
+            except Exception:
+                return txt
+
         if _truthy(plain):
-            # Draft mode: the drafted content IS the message — send it as-is.
-            en_body = text
-            subject_phrase = "Message from PNB Sahayak"
+            # A drafted piece of content. Build it from the reliably-structured ENGLISH draft:
+            # translation can drop the line breaks, so we split the "Subject:" line off in English
+            # FIRST, then translate the subject and the body separately into the email language.
+            if re.match(r"^\s*subject\s*:", text, re.IGNORECASE):          # this draft is an email
+                first, _, rest = text.partition("\n")
+                subject = _tr(first.split(":", 1)[1].strip())
+                body = _tr(rest.lstrip())
+            else:                                                          # a note / summary / key points
+                body = _tr(text)
+                subject = _tr("Message from PNB Sahayak")
         else:
+            # An answer email: Question + answer + source, with a generic subject.
             en_lines = []
             if question:
                 en_lines.append(f"Question: {question}")
@@ -187,22 +209,8 @@ async def email(to: str = Form(...), text: str = Form(...), question: str = Form
                 en_lines.append(f"Source: {source_label}")
             en_lines.append("Sent via PNB Sahayak. Answers are grounded in official PNB documents.")
             en_body = "\n\n".join(en_lines)
-            subject_phrase = "Answer to your question"
-
-        if (language_code or "en").lower().startswith("en"):
-            body = en_body
-            subject = f"PNB Sahayak — {subject_phrase}"
-        else:
-            model = "mayura:v1" if language_code in VOICE_LANGS else "sarvam-translate:v1"
-            try:
-                body = sc.translate(en_body, language_code, source_language_code="en-IN", model=model)
-            except Exception:
-                body = en_body
-            try:
-                subj_local = sc.translate(subject_phrase, language_code, source_language_code="en-IN", model=model)
-            except Exception:
-                subj_local = subject_phrase
-            subject = f"PNB Sahayak — {subj_local}"
+            body = display_text if use_display else _tr(en_body)
+            subject = "PNB Sahayak — " + _tr("Answer to your question")
 
         if source_url and not _truthy(plain):
             body = body + "\n" + source_url

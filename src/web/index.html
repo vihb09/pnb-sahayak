@@ -234,7 +234,7 @@ function render(card,d){
       ${isDraft?'<button class="ebtn" data-act="copy">📋 Copy</button> ':''}<button class="ebtn" data-act="etoggle">✉️ Email this ${isDraft?'draft':'answer'}</button>
       <div class="eform">
         <input class="eto" type="email" placeholder="Send to any email — customer, colleague…"/>
-        <select class="elang" title="Email language">${EMAIL_LANGS.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('')}</select>
+        <select class="elang" title="Email language">${EMAIL_LANGS.map(l=>`<option value="${l[0]}" ${l[0]===(d.language_code||'en-IN')?'selected':''}>${l[1]}</option>`).join('')}</select>
         <button class="esend" data-act="esend">Send</button>
         <span class="estatus"></span>
       </div></div>`:'';
@@ -247,7 +247,7 @@ function render(card,d){
     <div class="voice" id="v-${card.__id}"></div>
     <audio id="au-${card.__id}" controls style="display:none"></audio>
     <div class="timings" id="t-${card.__id}"></div>${shareBox}`;
-  card.__data={question:d.transcript||'',text:(d.answer_en||d.answer||''),display:(d.answer||''),source_label:(d.source||{}).label||'',source_url:(d.source||{}).url||'',isDraft:isDraft};
+  card.__data={question:d.transcript||'',text:(d.answer_en||d.answer||''),display:(d.answer||''),lang:(d.language_code||'en-IN'),source_label:(d.source||{}).label||'',source_url:(d.source||{}).url||'',isDraft:isDraft};
   card.__timings=d.timings||{};
   drawTimings(card);
   scroll();
@@ -295,7 +295,7 @@ $("chips").addEventListener('click',e=>{if(e.target.classList.contains('chip')){
 const EMAIL_LANGS=[["en-IN","English"],["hi-IN","Hindi"],["bn-IN","Bengali"],["gu-IN","Gujarati"],["kn-IN","Kannada"],["ml-IN","Malayalam"],["mr-IN","Marathi"],["od-IN","Odia"],["pa-IN","Punjabi"],["ta-IN","Tamil"],["te-IN","Telugu"]];
 const ANS_LANGS=[["auto","Auto — my language"],["en-IN","English"],["hi-IN","Hindi"],["hinglish","Hinglish"],["bn-IN","Bengali"],["gu-IN","Gujarati"],["kn-IN","Kannada"],["ml-IN","Malayalam"],["mr-IN","Marathi"],["od-IN","Odia"],["pa-IN","Punjabi"],["ta-IN","Tamil"],["te-IN","Telugu"]];
 $("ansLang").innerHTML=ANS_LANGS.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('');
-$("draftLang").innerHTML=EMAIL_LANGS.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('');
+$("draftLang").innerHTML=ANS_LANGS.filter(l=>l[0]!=='auto').map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('');
 let draftMode=false;
 function setMode(){
   $("m-answer").classList.toggle('on',!draftMode);
@@ -326,7 +326,7 @@ convo.addEventListener('click',async e=>{
     if(!to){status.textContent='Please enter an email address.';return;}
     status.textContent='Sending…';
     const dd=card.__data,fd=new FormData();
-    fd.append('to',to);fd.append('text',dd.text);fd.append('question',dd.question);fd.append('source_label',dd.source_label);fd.append('source_url',dd.source_url);fd.append('language_code',lang);if(dd.isDraft)fd.append('plain','1');
+    fd.append('to',to);fd.append('text',dd.text);fd.append('question',dd.question);fd.append('source_label',dd.source_label);fd.append('source_url',dd.source_url);fd.append('language_code',lang);fd.append('display_text',dd.display||'');fd.append('display_lang',dd.lang||'');if(dd.isDraft)fd.append('plain','1');
     try{const r=await (await fetch('/api/email',{method:'POST',body:fd})).json();
       if(r.sent)status.textContent='✓ Emailed to '+to;
       else if(r.mailto){status.textContent='Opening your email app…';window.location.href=r.mailto;}

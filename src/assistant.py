@@ -67,7 +67,8 @@ DRAFT_SYSTEM_PROMPT = (
     "summary, key points / bullet points, or a short report — then produce ONE piece of content in "
     "the most fitting format: a bulleted list when they ask for points or notes, flowing prose when "
     "they ask for a summary, and a courteous message (with a 'Subject:' line ONLY for an email) when "
-    "they ask for an email or reply. "
+    "they ask for an email or reply. A 'Subject:' line is ONLY for an email or reply — a summary, "
+    "notes, key points or report must NEVER begin with a 'Subject:' line or any title heading. "
     "Do NOT print the format name (like 'summary' or 'bullet points') as a heading, and do NOT "
     "produce more than one version. "
     "Use ONLY facts stated in the CONTEXT for policy details; never invent policy specifics, figures "
@@ -368,7 +369,7 @@ class Assistant:
         Unlike answer(), a draft always produces something — it never escalates — but any
         policy facts it uses come only from the retrieved passages, and it cites the source."""
         timings = {}
-        plan = decide_reply(request, language_code, force_native=True)
+        plan = plan_for_output(language_code) or decide_reply(request, language_code, force_native=True)
 
         # Translate the request to English for searching + drafting.
         try:
