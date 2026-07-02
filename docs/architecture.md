@@ -23,7 +23,7 @@ collapsed beneath it.
 ```mermaid
 flowchart TB
     EMP["👤 Bank employee<br/>branch · ops · field"]:::actor
-    IAM["🔐 SSO / IAM"]:::actor
+    IAM["🔐 SSO / IAM<br/><i>planned — not in PoC</i>"]:::planned
     APP["🏦 PNB Sahayak<br/>web app + orchestration"]:::app
     SARV["🧠 Sarvam AI stack<br/>STT · TTS · Translate · LLM · OCR"]:::sarvam
     KB[("📄 Approved PNB documents<br/>DMS / internal KB")]:::store
@@ -32,7 +32,7 @@ flowchart TB
     GOV["📊 Governance & analytics<br/>dashboard · audit log"]:::store
 
     EMP -->|"asks aloud — Hindi / English / Hinglish"| APP
-    IAM -.->|authenticates| APP
+    IAM -.->|"authenticates · planned"| APP
     APP -->|all AI inference| SARV
     APP -->|retrieves passages| KB
     APP -->|"unanswered → ticket"| N8N
@@ -44,15 +44,16 @@ flowchart TB
     classDef sarvam fill:#2458F6,stroke:#1B3FB0,color:#ffffff;
     classDef escalate fill:#FB7A17,stroke:#C85F0E,color:#ffffff;
     classDef store fill:#F1F5FB,stroke:#64748B,color:#15202E;
+    classDef planned fill:#F8FAFC,stroke:#94A3B8,color:#64748B,stroke-dasharray:5 3;
 ```
 
 </details>
 
 **In words.** Employees interact by voice; the app uses the Sarvam stack for all AI; it
 answers **only from approved PNB documents**; unanswered questions become tracked tickets;
-every turn is logged for governance; access is via SSO/IAM. *(The PoC uses Sarvam's hosted
-API + a Google Sheet + a local knowledge base; production uses Sarvam on-prem + the bank's
-DMS + IAM.)*
+every turn is logged for governance. **SSO/IAM authentication is planned for production — the
+PoC itself has no sign-in.** *(The PoC uses Sarvam's hosted API + a Google Sheet + a local
+knowledge base; production adds SSO/IAM and uses Sarvam on-prem + the bank's DMS.)*
 
 ---
 
@@ -309,14 +310,14 @@ flowchart TB
         IDXS[("Index + documents (KB)")]:::store
         LOGS[("Logs / audit")]:::store
         DASHS["Dashboard"]:::store
-        IAM["SSO / IAM"]:::neutral
+        IAM["SSO / IAM<br/>(planned)"]:::planned
         DMS[("DMS — document source")]:::store
         ING["Ingestion pipeline"]:::neutral
         LB --> APPN
         APPN --> IDXS
         APPN --> LOGS
         APPN --> DASHS
-        IAM -.-> APPN
+        IAM -.->|planned| APPN
         DMS --> ING --> IDXS
     end
     subgraph SARV["Sarvam models"]
@@ -328,6 +329,7 @@ flowchart TB
     classDef sarvam fill:#2458F6,stroke:#1B3FB0,color:#ffffff;
     classDef neutral fill:#FFFFFF,stroke:#64748B,color:#15202E;
     classDef store fill:#F1F5FB,stroke:#64748B,color:#15202E;
+    classDef planned fill:#F8FAFC,stroke:#94A3B8,color:#64748B,stroke-dasharray:5 3;
     style BANK fill:#F8FAFC,stroke:#CBD5E1,color:#15202E
     style SARV fill:#F8FAFC,stroke:#CBD5E1,color:#15202E
 ```
@@ -345,7 +347,7 @@ production uses the on-prem / sovereign option.
 
 | Concern | How it's addressed |
 |---|---|
-| **AuthN / Z** | SSO/IAM integration; role-based access; per-user audit identity |
+| **AuthN / Z** | *Planned for production (not in the PoC):* SSO/IAM integration; role-based access; per-user audit identity |
 | **Data minimisation & residency** | only necessary text sent to models; no training on bank data; on-prem residency (§6) |
 | **Grounding guardrails** | retrieval-gated generation + enforced citations + "I don't know → escalate" (§4/§5) |
 | **Hallucination monitoring** | confidence score per answer; dashboard tracks confidence distribution and escalation rate; human review of escalations |
