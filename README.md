@@ -23,7 +23,7 @@ Built on the **Sarvam** AI stack. Runs locally with Python + FastAPI.
 
 ## Demo video & business decks
 
-- 🎥 **Demo video — 3–5 min multilingual walkthrough:** **<ADD GOOGLE DRIVE / YOUTUBE LINK HERE>**
+- 🎥 **Demo video — 3–5 min multilingual walkthrough:** [Watch on Google Drive](https://drive.google.com/file/d/1YtlPc_Zx4arCDY1XJNkAEZky-sNqFIfG/view?usp=sharing)
 - 📊 **Business case & architecture** (customer-ready deck): [`docs/decks/PNB-Sahayak-Business-Case-and-Architecture.pptx`](docs/decks/PNB-Sahayak-Business-Case-and-Architecture.pptx)
 - 🗺️ **Platform vision** — extending this PoC across all 8 PNB RFP use cases: [`docs/decks/PNB-Sahayak-Platform-Vision.pptx`](docs/decks/PNB-Sahayak-Platform-Vision.pptx)
 
