@@ -22,6 +22,9 @@ desktop.ini
 *.wav.tmp
 data/*.wav
 
+# ===== Large video exports (too big for git — shared via a Drive/YouTube link) =====
+*.mp4
+
 # ===== Real PNB documents (copyrighted — keep LOCAL, never commit) =====
 # Both the original PDFs and the extracted .txt hold PNB's copyrighted content.
 # The repo stays reproducible via src/ingest/ + data/policies/source_manifest.json.

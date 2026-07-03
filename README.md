@@ -21,6 +21,12 @@ Built on the **Sarvam** AI stack. Runs locally with Python + FastAPI.
 > the PDFs and extracted text are **git-ignored**; the repo ships the scripts that rebuild
 > the knowledge base.
 
+## Demo video & business decks
+
+- 🎥 **Demo video — 3–5 min multilingual walkthrough:** **<ADD GOOGLE DRIVE / YOUTUBE LINK HERE>**
+- 📊 **Business case & architecture** (customer-ready deck): [`docs/decks/PNB-Sahayak-Business-Case-and-Architecture.pptx`](docs/decks/PNB-Sahayak-Business-Case-and-Architecture.pptx)
+- 🗺️ **Platform vision** — extending this PoC across all 8 PNB RFP use cases: [`docs/decks/PNB-Sahayak-Platform-Vision.pptx`](docs/decks/PNB-Sahayak-Platform-Vision.pptx)
+
 ---
 
 ## What it can do
@@ -117,6 +123,7 @@ PnB Assistant/
 │  └─ web/                   ← index.html, dashboard.html, stream.html
 ├─ docs/
 │  ├─ architecture.md        ← diagrams + Sarvam API rationale
+│  ├─ decks/                 ← business-case & platform-vision slide decks
 │  ├─ diagrams/              ← rendered PNG exports of every diagram (for slides)
 │  ├─ sarvam-api-reference.md← verified endpoints/models
 │  └─ document-guide.md      ← what each of the 56 documents is
