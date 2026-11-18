@@ -165,6 +165,52 @@ async def speak(text: str = Form(...), language_code: str = Form("en-IN")):
         return JSONResponse({"audio_base64": "", "speak_ms": 0})
 
 
+@app.websocket("/ws/speak")
+async def ws_speak(browser: WebSocket):
+    """Streaming text-to-speech. The browser sends {text, language_code, speaker?};
+    we relay bulbul:v3 streaming MP3 chunks back as binary frames the moment Sarvam
+    produces them, so playback can start in ~1s instead of waiting for the whole clip.
+    Audio arrives as binary WS frames; a final text frame signals done/error. The
+    browser falls back to the blocking /api/speak if anything here fails."""
+    await browser.accept()
+    try:
+        req = await browser.receive_json()
+        text = (req.get("text") or "").strip()[:2500]
+        lang = req.get("language_code") or "en-IN"
+        speaker = req.get("speaker") or "shubh"
+        if not text:
+            await browser.send_json({"type": "error"})
+            return
+        async with _async_sarvam.text_to_speech_streaming.connect(
+                model="bulbul:v3", send_completion_event="true") as sarvam_ws:
+            await sarvam_ws.configure(
+                target_language_code=lang, speaker=speaker, speech_sample_rate=22050,
+                enable_preprocessing=True, output_audio_codec="mp3")
+            await sarvam_ws.convert(text)
+            await sarvam_ws.flush()
+            async for msg in sarvam_ws:
+                data = getattr(msg, "data", None)
+                audio = getattr(data, "audio", None) if data is not None else None
+                if audio:
+                    await browser.send_bytes(base64.b64decode(audio))
+                else:
+                    break            # terminal 'event' arrives after the last audio chunk
+        await browser.send_json({"type": "done"})
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        print("ws_speak error:", repr(e))
+        try:
+            await browser.send_json({"type": "error"})
+        except Exception:
+            pass
+    finally:
+        try:
+            await browser.close()
+        except Exception:
+            pass
+
+
 @app.post("/api/email")
 async def email(to: str = Form(...), text: str = Form(...), question: str = Form(""),
                 source_label: str = Form(""), source_url: str = Form(""),

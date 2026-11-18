@@ -91,6 +91,10 @@
   .tag{font-size:11.5px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 11px;}
   .flag{background:rgba(220,53,69,.10);border:1px solid rgba(220,53,69,.35);color:#B4232F;border-radius:10px;padding:8px 12px;font-size:12.5px;}
   .info{background:rgba(236,122,18,.10);border:1px solid rgba(236,122,18,.35);color:#B45309;border-radius:10px;padding:8px 12px;font-size:12.5px;}
+  .clarify{display:flex;flex-direction:column;gap:8px;margin:12px 0 2px;}
+  .pickbtn{cursor:pointer;text-align:left;font-size:13px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 13px;transition:.15s;display:flex;align-items:center;gap:9px;}
+  .pickbtn:hover{border-color:var(--gold);color:var(--gold-soft);transform:translateY(-1px);}
+  .pickbtn::before{content:"📄";font-size:14px;flex:none;}
   audio{width:100%;margin-top:12px;height:34px;}
   .voice{font-size:12px;color:var(--muted);margin-top:8px;}
   .playbtn{display:inline-block;cursor:pointer;background:var(--maroon-2);color:#fff;border-radius:999px;padding:6px 14px;font-size:12.5px;}
@@ -225,6 +229,8 @@ function render(card,d){
     meta=`<span class="flag">⚠️ No matching document — flagged to the policy team${d.ticket_id?' · ticket <b>'+esc(d.ticket_id)+'</b>':''}</span>`;
   }else if(d.kind==='capability'||d.kind==='greeting'){
     meta=`<span class="info">ℹ️ About this assistant</span>`;
+  }else if(d.kind==='clarify'){
+    meta=`<span class="info">🔎 Related policies — pick one</span>`;
   }else{
     meta=`<span class="tag">Not a PNB policy question</span>`;
   }
@@ -242,8 +248,10 @@ function render(card,d){
       <button data-act="setlvl" data-lvl="concise" class="${card.__level==='concise'?'on':''}">Concise</button>
       <button data-act="setlvl" data-lvl="detailed" class="${card.__level==='detailed'?'on':''}">Detailed</button>
     </div>`:'';
+  const clarifyBox=(d.kind==='clarify'&&Array.isArray(d.suggestions)&&d.suggestions.length)?
+    `<div class="clarify">${d.suggestions.map(s=>`<button type="button" class="pickbtn" data-act="pick" data-q="${esc(s.query)}">${esc(s.label)}</button>`).join('')}</div>`:'';
   card.innerHTML=`<div class="ans${isDraft?' draft':''}">${esc(d.answer)}</div>${aen}
-    <div class="meta">${meta}</div>${lvlToggle}
+    <div class="meta">${meta}</div>${lvlToggle}${clarifyBox}
     <div class="voice" id="v-${card.__id}"></div>
     <audio id="au-${card.__id}" controls style="display:none"></audio>
     <div class="timings" id="t-${card.__id}"></div>${shareBox}`;
@@ -257,9 +265,69 @@ function drawTimings(card){
   const map={listen_ms:"speech→text",translate_in_ms:"translate-in",search_ms:"search",llm_ms:"reason",translate_out_ms:"translate-out",speak_ms:"text→speech"};
   el.innerHTML=["listen_ms","translate_in_ms","search_ms","llm_ms","translate_out_ms","speak_ms"].filter(k=>t[k]!=null).map(k=>`<span>${map[k]}: ${(t[k]/1000).toFixed(1)}s</span>`).join('');
 }
+function canStream(){
+  try{ return 'MediaSource' in window && MediaSource.isTypeSupported('audio/mpeg'); }catch(_){ return false; }
+}
 async function speak(card,d){
   if(!d.answer)return;
   if(!d.tts_lang){$("v-"+card.__id).textContent="ℹ️ Voice not available for this language — text only.";return;}
+  if(canStream()){
+    try{ await speakStreaming(card,d); return; }   // fast path: first sound in ~1s
+    catch(_){ /* streaming failed -> fall through to the reliable blocking path */ }
+  }
+  return speakBlocking(card,d);
+}
+// Streaming voice: play bulbul:v3 MP3 chunks as they arrive over /ws/speak, via
+// MediaSource, so sound starts in ~1s instead of waiting for the whole clip.
+function speakStreaming(card,d){
+  return new Promise((resolve,reject)=>{
+    const v=$("v-"+card.__id), au=$("au-"+card.__id);
+    if(!v||!au)return reject(new Error('no-el'));
+    const t0=performance.now();
+    let gotAudio=false, ended=false, settled=false, sb=null;
+    const queue=[];
+    const mediaSrc=new MediaSource();
+    const proto=location.protocol==='https:'?'wss://':'ws://';
+    const ws=new WebSocket(proto+location.host+'/ws/speak');
+    ws.binaryType='arraybuffer';
+    const finish=(ok)=>{ if(settled)return; settled=true; try{ws.close();}catch(_){}
+      ok?resolve():reject(new Error('stream-fail')); };
+    function pump(){
+      if(!sb||sb.updating)return;
+      if(queue.length){ try{sb.appendBuffer(queue.shift());}catch(_){ finish(false); } }
+      else if(ended && mediaSrc.readyState==='open'){ try{mediaSrc.endOfStream();}catch(_){} }
+    }
+    function tryPlay(){
+      au.play().then(()=>{v.textContent='';}).catch(()=>{           // autoplay blocked -> tap to hear
+        v.innerHTML='<span class="playbtn">🔊 Tap to hear the answer</span>';
+        const b=v.firstChild; if(b)b.onclick=()=>{au.play().then(()=>{v.textContent='';}).catch(()=>{});};
+      });
+    }
+    mediaSrc.addEventListener('sourceopen',()=>{
+      try{ sb=mediaSrc.addSourceBuffer('audio/mpeg'); }catch(_){ return finish(false); }
+      sb.addEventListener('updateend',pump);
+      sb.addEventListener('error',()=>finish(false));
+      pump();
+    });
+    if(au.dataset.url){try{URL.revokeObjectURL(au.dataset.url);}catch(_){}}
+    const url=URL.createObjectURL(mediaSrc); au.dataset.url=url; au.src=url; au.style.display='block';
+    ws.onopen=()=>{ v.textContent="🔊 preparing voice…"; ws.send(JSON.stringify({text:d.answer,language_code:d.tts_lang})); };
+    ws.onmessage=(ev)=>{
+      if(typeof ev.data==='string'){                               // control frame (done/error)
+        let m={}; try{m=JSON.parse(ev.data);}catch(_){}
+        if(m.type==='done'){ ended=true; pump(); gotAudio?finish(true):finish(false); }
+        else if(m.type==='error'){ if(gotAudio){ended=true;pump();finish(true);} else finish(false); }
+        return;
+      }
+      queue.push(new Uint8Array(ev.data)); pump();                 // binary audio chunk
+      if(!gotAudio){ gotAudio=true; card.__timings.speak_ms=Math.round(performance.now()-t0); drawTimings(card); tryPlay(); }
+    };
+    ws.onerror=()=>{ if(!gotAudio)finish(false); };
+    ws.onclose=()=>{ if(!settled){ if(gotAudio){ended=true;pump();finish(true);} else finish(false); } };
+    setTimeout(()=>{ if(!gotAudio)finish(false); },6000);          // no audio in 6s -> fall back
+  });
+}
+async function speakBlocking(card,d){
   const v=$("v-"+card.__id);v.textContent="🔊 preparing voice…";
   const fd=new FormData();fd.append('text',d.answer);fd.append('language_code',d.tts_lang);
   try{const a=await (await fetch('/api/speak',{method:'POST',body:fd})).json();
@@ -281,7 +349,7 @@ async function speak(card,d){
 let CARD_N=0;
 async function handle(promise,card){
   card.__id=++CARD_N;
-  try{const d=await (await promise).json();render(card,d);if(d.kind==='answer')speak(card,d);}
+  try{const d=await (await promise).json();render(card,d);if(d.kind!=='draft')speak(card,d);}  // speak every reply (answer/capability/greeting/decline); drafts stay written-only
   catch(e){card.innerHTML='<div class="ans">⚠️ Could not reach the assistant. Is the app still running?</div>';}
 }
 function askText(q){const c=newTurn(q);const fd=new FormData();fd.append('question',q);fd.append('mode',draftMode?'draft':'answer');if(draftMode)fd.append('draft_lang',$("draftLang").value);else fd.append('answer_lang',$("ansLang").value);handle(fetch('/api/ask_text',{method:'POST',body:fd}),c);}
@@ -308,6 +376,10 @@ $("m-answer").addEventListener('click',()=>{draftMode=false;setMode();});
 $("m-draft").addEventListener('click',()=>{draftMode=true;setMode();});
 convo.addEventListener('click',async e=>{
   const t=e.target;
+  if(t.dataset.act==='pick'){                                          // clarify suggestion -> ask that policy
+    if(t.dataset.busy)return;                                         // guard against a double-fire submitting twice
+    t.dataset.busy='1';setTimeout(()=>{delete t.dataset.busy;},1500);
+    unlockAudio();askText(t.dataset.q||t.textContent);return;}
   if(t.dataset.act==='setlvl'){
     const card=t.closest('.card'),target=t.dataset.lvl;
     if(!card.__q||card.__level===target)return;

@@ -88,7 +88,7 @@ flowchart TB
     end
     subgraph L6["⑥ Reasoning — Sarvam"]
         PB["Prompt builder<br/>grounding rules + context + citation"]:::neutral
-        LLM["Sarvam-30B<br/>grounded answer / draft + cite · reasoning_effort=null"]:::sarvam
+        LLM["Sarvam-105B<br/>grounded answer / draft + cite · reasoning_effort=null"]:::sarvam
         PARSE["Parser — answer + source id + confidence"]:::neutral
     end
     subgraph L7["⑦ Agentic escalation"]
@@ -157,7 +157,7 @@ sequenceDiagram
     participant S as Saaras (STT)
     participant M as Mayura (Translate)
     participant R as Retriever (BM25)
-    participant L as Sarvam-30B (LLM)
+    participant L as Sarvam-105B (LLM)
     participant B as Bulbul (TTS)
 
     E->>W: Speak question (records 16k WAV)
@@ -227,7 +227,7 @@ flowchart LR
     GATE{"max score ≥ threshold?"}:::decision
     ESC["Escalate (no LLM)"]:::escalate
     CTX["Assemble context<br/>passages + source tags"]:::neutral
-    ANS["Sarvam-30B<br/>answer ONLY from context + cite source"]:::sarvam
+    ANS["Sarvam-105B<br/>answer ONLY from context + cite source"]:::sarvam
     CITE["Attach citation + confidence"]:::neutral
 
     IDX --> RET
@@ -321,7 +321,7 @@ flowchart TB
         DMS --> ING --> IDXS
     end
     subgraph SARV["Sarvam models"]
-        M1["Saaras · Bulbul · Sarvam-30B · Mayura · Vision"]:::sarvam
+        M1["Saaras · Bulbul · Sarvam-105B · Mayura · Vision"]:::sarvam
     end
     APPN <-->|"private link / VPN · IP-whitelist<br/>(ideal: Sarvam deployed on-prem)"| SARV
 
@@ -370,7 +370,7 @@ production uses the on-prem / sovereign option.
 |---|---|---|
 | **Saaras** (`saaras:v3`) | Speech → text (22 Indian languages) | Understands the spoken question; also powers live streaming |
 | **Mayura** (`mayura:v1`, Translate API) | Text → text across languages, code-mixed / Roman styles | Bridges the user's language and the English documents, and keeps Hinglish answers consistent (`sarvam-translate:v1` covers extra languages) |
-| **Sarvam-30B** (Chat Completions) | The LLM that reads context and writes the answer or draft | Short, grounded answers and drafted content; chosen over `sarvam-105b` because 30B is recommended for voice / low-latency |
+| **Sarvam-105B** (Chat Completions) | The LLM that reads context and writes the answer or draft | Short, grounded answers and drafted content; migrated from `sarvam-30b` (deprecated 26 Jul 2026) — same request format, so no other code changes needed |
 | **Bulbul** (`bulbul:v3`) | Text → speech (11 Indian languages) | Speaks the answer back in the user's language |
 | **Sarvam Vision** (Document Digitization) | Document / PDF → text (OCR) | Read the 2 scanned PDFs that had no text layer |
 

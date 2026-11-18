@@ -7,7 +7,7 @@ bank's internal policies. The assistant:
 - **understands** the spoken question (Sarvam **Saaras**),
 - **finds** the answer in a set of **real PNB policy documents** (keyword search),
 - **answers only from those documents** and **shows the exact source**, speaking the
-  reply back in the user's language (Sarvam **Mayura** + **sarvam-30b** + **Bulbul**),
+  reply back in the user's language (Sarvam **Mayura** + **sarvam-105b** + **Bulbul**),
 - **drafts routine content** (emails, notes, replies) grounded in the same documents,
 - and when it **isn't confident, it doesn't guess** — it raises a follow-up **ticket**
   via an **n8n** workflow.
@@ -44,7 +44,7 @@ Built on the **Sarvam** AI stack. Runs locally with Python + FastAPI.
 ## Architecture
 
 > speak → **Saaras** (speech→text) → **Mayura** (translate, if needed) → **BM25 search**
-> of real PNB docs → **sarvam-30b** (grounded answer / draft + citation) → **Mayura**
+> of real PNB docs → **sarvam-105b** (grounded answer / draft + citation) → **Mayura**
 > (translate back) → **Bulbul** (speak) — and unanswered questions become **n8n** tickets.
 
 **System context**
@@ -65,7 +65,7 @@ workflow, and the on-prem deployment — plus security, NFRs, and the Sarvam-API
 |-------------|-----|
 | **Saaras** `saaras:v3` | speech → text (and live streaming) |
 | **Mayura** `mayura:v1` (Translate API) | bridge the user's language ↔ the English documents; keep Hinglish consistent |
-| **sarvam-30b** (Chat Completions) | write short, grounded answers and drafts (Sarvam recommends 30B for voice) |
+| **sarvam-105b** (Chat Completions) | write short, grounded answers and drafts (migrated from the deprecated sarvam-30b) |
 | **Bulbul** `bulbul:v3` | speak the answer back in the user's language |
 | **Sarvam Vision** (Document Digitization) | OCR the 2 scanned PDFs |
 

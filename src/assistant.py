@@ -83,6 +83,13 @@ DRAFT_EMPTY = ("Tell me what you'd like me to prepare — for example, 'summaris
 DRAFT_FAIL = "Sorry, I couldn't prepare that draft just now. Please try rephrasing your request."
 
 NOISE_SCORE = 7.0     # below this the query barely matches anything -> treat as off-topic
+CLARIFY_FLOOR = 4.0   # a "did you mean?" suggestion needs at least this much genuine relevance
+# Generic words that describe a DOCUMENT rather than a topic. Stripping them tells us when a
+# query is really a broad topic browse ("hospital policy" -> topic is just "hospital").
+GENERIC_TOPIC_WORDS = {"policy", "policies", "scheme", "schemes", "circular", "circulars",
+                       "notice", "notices", "rule", "rules", "guideline", "guidelines",
+                       "benefit", "benefits", "detail", "details", "information", "info",
+                       "document", "documents", "related", "regarding", "matter", "matters"}
 STOPWORDS = {
     "the", "and", "for", "are", "was", "what", "when", "how", "why", "who", "which",
     "does", "did", "can", "will", "would", "should", "you", "your", "our", "their",
@@ -140,6 +147,38 @@ def _content_terms(text):
     # meaningful words: >=3 chars, not a stopword, and containing a letter (drops "12345")
     return [t for t in _tokenize(text)
             if len(t) >= 3 and t not in STOPWORDS and re.search(r"[a-z]", t)]
+
+
+def _stemish(a, b):
+    """Loose word match: exact, or one word is a prefix of the other (sharing >=5 chars).
+    This is what connects 'hospital' <-> 'hospitalisation' so a topical query can still
+    recognise the right policy title."""
+    if a == b:
+        return True
+    n = min(len(a), len(b))
+    return n >= 5 and (a.startswith(b) or b.startswith(a))
+
+
+def _strip_circular(label):
+    """Drop a leading circular number like '124/2012 - ' from a document title, but only when
+    it is clearly a circular id followed by a separator — never a digit that is part of a word
+    such as '2nd' or '10th'."""
+    return re.sub(r"^\s*\d{1,4}(?:[/\-.]\d{1,4})*\s*[–—\-:]\s+", "", label or "").strip()
+
+
+def _scheme_key(label):
+    """Normalise a title so different circulars of the SAME scheme group together
+    (e.g. '124/2012 - PNB Hospitalization...' and '201/2014 - PNB Hospitalization...')."""
+    s = _strip_circular(label).lower()
+    s = re.sub(r"\b(19|20)\d\d\b", " ", s)          # strip years
+    s = re.sub(r"[^a-z ]+", " ", s)
+    return " ".join(s.split()[:6])                  # first few words = the scheme signature
+
+
+def _clean_label(label, n=80):
+    """Display title without the leading circular number, trimmed to a sensible length."""
+    s = _strip_circular(label)
+    return (s[:n - 1] + "…") if len(s) > n else s
 
 
 def _confidence(score):
@@ -266,9 +305,45 @@ class Assistant:
             "answer": answer, "answer_en": answer_en,
             "source": source, "confidence": confidence, "score": score,
             "escalate": escalate, "kind": kind,
-            "tts_lang": (plan["voice_lang"] if kind in ("answer", "draft") else "en-IN"),
+            "tts_lang": plan["voice_lang"],   # the reply's actual language (None => text-only), so voice matches text for every kind
             "timings": timings,
         }
+
+    def _clarify_candidates(self, query_en, limit=4):
+        """Distinct real documents whose TITLE matches a topic word in the query (exact or
+        stem). Used to offer 'did you mean one of these policies?' instead of a flat decline.
+        Matching on the title (not loose body text) + grouping by scheme is what keeps this
+        honest — it only surfaces documents genuinely about the topic, and never invents an
+        answer. Returns [{label, query}] (query = full title, to re-ask cleanly) or []."""
+        terms = [t for t in _content_terms(query_en) if len(t) >= 4]
+        if not terms:
+            return []
+        out, seen = [], set()
+        for h in self.kb.search(query_en, k=12):        # a broad net for distinct titled matches
+            if h.get("score", 0) < CLARIFY_FLOOR:        # ignore incidental low-relevance matches
+                continue
+            label = (h.get("label") or h.get("pdf") or "").strip()
+            if not any(_stemish(t, lt) for t in terms for lt in _tokenize(label)):
+                continue
+            key = _scheme_key(label)
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            out.append({"label": _clean_label(label), "query": _strip_circular(label)})
+            if len(out) >= limit:
+                break
+        return out
+
+    def _clarify_reply(self, question, language_code, plan, timings, candidates, score):
+        if len(candidates) == 1:
+            prompt = ("I couldn't answer that exactly, but this related PNB policy may be what you "
+                      "mean. Tap it to see the details:")
+        else:
+            prompt = ("I'm not certain which one you mean. I have these related PNB policies — tap "
+                      "the one you want:")
+        r = self._reply(question, language_code, plan, timings, prompt, kind="clarify", score=score)
+        r["suggestions"] = candidates
+        return r
 
     def answer(self, question, language_code="en-IN", k=6, detail=False, out_lang=None):
         timings = {}
@@ -314,18 +389,36 @@ class Assistant:
         hits = self.kb.search(query_en, k=k)
         timings["search_ms"] = int((time.time() - t) * 1000)
         top = hits[0] if hits else None
+        # Real, related policies to offer if we can't answer directly (see _clarify_candidates).
+        cands = self._clarify_candidates(query_en)
 
-        # 5. Nothing relevant -> off-topic (no ticket, no LLM).
+        # 4b. Broad topic browse ("tell me about hospital policy") -> the meaningful content is a
+        # single topic word and several distinct policies match, so offer the choices instead of
+        # answering just one. Specific, multi-word questions fall through and are answered normally.
+        specific = [t for t in _content_terms(query_en) if t not in GENERIC_TOPIC_WORDS]
+        if len(cands) >= 2 and len(specific) <= 1:
+            return self._clarify_reply(question, language_code, plan, timings, cands,
+                                       top["score"] if top else 0.0)
+
+        # 5. Nothing relevant -> off-topic, UNLESS a titled policy clearly matches the topic:
+        # then ask WHICH one rather than a flat decline. This never invents an answer.
         if not top or top["score"] < NOISE_SCORE:
+            if cands:
+                return self._clarify_reply(question, language_code, plan, timings, cands,
+                                           top["score"] if top else 0.0)
             return self._reply(question, language_code, plan, timings, POLITE_OFFTOPIC,
                                 score=(top["score"] if top else 0.0), kind="offtopic")
 
         # 5b. Relevance guard: the question's own words must actually appear in the best
         # passage, otherwise we'd be answering from an unrelated document (e.g. "who is the
         # PM of India?" matching a medical doc on the word "India") -> decline, don't guess.
+        # On a topical near-miss (e.g. "hospital" vs "hospitalisation"), offer the related
+        # policies to confirm instead of declining outright.
         content = set(_content_terms(query_en))
         present = len(content & set(_tokenize(top["text"])))
         if present < (2 if len(content) >= 3 else 1):
+            if cands:
+                return self._clarify_reply(question, language_code, plan, timings, cands, top["score"])
             return self._reply(question, language_code, plan, timings, POLITE_OFFTOPIC,
                                 score=top["score"], kind="offtopic")
 

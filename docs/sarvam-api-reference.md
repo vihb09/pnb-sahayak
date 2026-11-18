@@ -31,9 +31,9 @@ everywhere for consistency.)
 ## 3. Chat / LLM (reads a document and writes the answer)
 - **Call:** `POST https://api.sarvam.ai/v1/chat/completions` (OpenAI-compatible)
 - **Sends (JSON):** `messages` array, `model`, optional `reasoning_effort`
-- **Model string we use:** `sarvam-30b` — Sarvam recommends the 30B for
-  "voice-agent pipelines, interactive chat, high-throughput workloads", which is
-  exactly this project. (`sarvam-105b` is the larger flagship, also available.)
+- **Model string we use:** `sarvam-105b` — the flagship chat model. We migrated
+  from `sarvam-30b`, which Sarvam is deprecating on 26 Jul 2026; the API
+  (request format, streaming, tool calling, structured outputs) is unchanged.
 - **Reasoning:** these are "thinking" models (`reasoning_effort` default `low`).
   We set `reasoning_effort = null` so the answer comes back directly in
   `message.content` with no thinking pause — important for a snappy voice reply.
@@ -53,5 +53,5 @@ everywhere for consistency.)
 |----------------|----------------------|----------|
 | Saaras | `saaras:v3` | speech-to-text |
 | Bulbul | `bulbul:v3` | text-to-speech |
-| sarvam-105b | `sarvam-30b` (chosen for voice; 105b also available) | the LLM (answer writing) |
+| sarvam-105b | `sarvam-105b` (migrated from the deprecated sarvam-30b) | the LLM (answer writing) |
 | Translate | `mayura:v1` | cross-language translation |

@@ -7,7 +7,7 @@ and is never printed.
 
   listen()    -> Saaras       : spoken audio  -> text (+ detected language)
   translate() -> Mayura       : text -> text in another language
-  think()     -> sarvam-30b   : read context + question -> written answer
+  think()     -> sarvam-105b  : read context + question -> written answer
   speak()     -> Bulbul       : text -> spoken audio
 """
 import base64
@@ -22,7 +22,7 @@ load_dotenv(PROJECT_DIR / ".env")
 
 API_KEY = os.getenv("SARVAM_API_KEY")
 BASE_URL = "https://api.sarvam.ai"
-CHAT_MODEL = "sarvam-30b"   # Sarvam recommends the 30B for voice / low-latency pipelines
+CHAT_MODEL = "sarvam-105b"   # migrated from sarvam-30b (deprecated 26 Jul 2026); same API
 AUTH = {"api-subscription-key": API_KEY or ""}
 JSON_HEADERS = {**AUTH, "Content-Type": "application/json"}
 
@@ -99,8 +99,14 @@ def translate(text: str, target_language_code: str, source_language_code: str = 
 
 def think(system_prompt: str, user_prompt: str, max_tokens: int = 400, temperature: float = 0.2,
           reasoning_effort=None) -> str:
-    """sarvam-30b chat completion. Returns the assistant's text.
-    reasoning_effort=None keeps replies fast (no 'thinking' pause) for the voice flow."""
+    """sarvam-105b chat completion. Returns the assistant's text.
+
+    reasoning_effort=None disables the model's 'thinking' step -> fast, direct answer.
+    IMPORTANT: this None must be SENT as JSON null (which it is below); it is the ONLY
+    way to switch reasoning off. Measured on sarvam-105b (Jul 2026): omitting the field,
+    or any of 'low'/'medium'/'high', turns reasoning ON -> ~2x latency (1.5s -> 2.5-3.3s)
+    and ~3x output tokens, and with our small max_tokens the thinking eats the whole
+    budget so message.content comes back empty. Keep this None for the voice flow."""
     r = requests.post(
         f"{BASE_URL}/v1/chat/completions",
         headers=JSON_HEADERS,
@@ -127,23 +133,36 @@ def speak(text: str, target_language_code: str = "en-IN", speaker: str = "shubh"
 
     enable_preprocessing makes Bulbul read numbers, dates and mixed-language text the way a
     person would (a big part of sounding natural), and a slightly gentler pace is less robotic.
-    (pitch/loudness are not supported on bulbul:v3.)"""
-    r = requests.post(
-        f"{BASE_URL}/text-to-speech",
-        headers=JSON_HEADERS,
-        json={
-            "text": text[:2500],  # bulbul:v3 limit
-            "target_language_code": target_language_code,
-            "speaker": speaker,
-            "model": "bulbul:v3",
-            "pace": pace,
-            "enable_preprocessing": True,
-            "speech_sample_rate": 16000,   # smaller WAV -> quicker to stream over a tunnel
-        },
-        timeout=90,
-    )
-    r.raise_for_status()
-    return base64.b64decode(r.json()["audios"][0])
+    (pitch/loudness are not supported on bulbul:v3.)
+
+    Resilience: TTS is the slowest step and Sarvam occasionally hangs/times out when the
+    service is busy (not language-specific — measured Aug 2026). We use a short per-attempt
+    timeout and retry ONCE so a brief slowdown self-heals instead of returning silent audio.
+    Only transient failures are retried (timeout, connection drop, 5xx); a 4xx such as an
+    invalid speaker is raised immediately since a retry cannot help."""
+    body = {
+        "text": text[:2500],  # bulbul:v3 limit
+        "target_language_code": target_language_code,
+        "speaker": speaker,
+        "model": "bulbul:v3",
+        "pace": pace,
+        "enable_preprocessing": True,
+        "speech_sample_rate": 16000,   # smaller WAV -> quicker to stream over a tunnel
+    }
+    last_err = None
+    for attempt in range(2):   # 1 try + 1 retry
+        try:
+            r = requests.post(f"{BASE_URL}/text-to-speech", headers=JSON_HEADERS,
+                              json=body, timeout=20)   # fail fast, then retry (was a single 90s wait)
+        except requests.RequestException as e:         # timeout / connection error -> retry
+            last_err = e
+            continue
+        if r.status_code < 300:
+            return base64.b64decode(r.json()["audios"][0])
+        if r.status_code < 500:                        # client error (e.g. bad speaker) -> no retry
+            r.raise_for_status()
+        last_err = f"HTTP {r.status_code}: {r.text[:120]}"   # 5xx -> loop and retry
+    raise RuntimeError(f"text-to-speech failed after retry: {last_err}")
 
 
 # --- quick test of the two abilities we haven't exercised yet ---
@@ -158,7 +177,7 @@ if __name__ == "__main__":
     print("\n2) Translate that Hindi back -> English:")
     print("   ", translate(hi, "en-IN"))
 
-    print("\n3) Ask sarvam-30b a grounded question:")
+    print("\n3) Ask sarvam-105b a grounded question:")
     answer = think(
         system_prompt="Answer ONLY from the context. If the answer is not in the context, say you don't know.",
         user_prompt="Context: A savings account requires a PAN card and an Aadhaar card.\n\nQuestion: What two documents are needed for a savings account?",
