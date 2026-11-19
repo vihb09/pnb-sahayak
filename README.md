@@ -38,6 +38,8 @@ Built on the **Sarvam** AI stack. Runs locally with Python + FastAPI.
 | ✍️ Draft or summarise — emails, notes, key points, replies — grounded in policy | home page (Draft mode) |
 | ✉️ Email an answer to anyone, translated into any of 11 languages | home page |
 | 🚫 Honest "I can't find that" → **escalates** to a follow-up ticket | home page + n8n |
+| 🤔 Vague policy question → **"Did you mean…?"** list of related policies (never for off-topic questions) | home page |
+| 🔊 Spoken reply **streamed** — voice starts about a second after the text | home page |
 | 📊 Governance dashboard (questions, languages, confidence, escalations) | `/dashboard` |
 | 🔴 Real-time streaming captions (optional, separate) | `/stream` |
 
@@ -45,7 +47,7 @@ Built on the **Sarvam** AI stack. Runs locally with Python + FastAPI.
 
 > speak → **Saaras** (speech→text) → **Mayura** (translate, if needed) → **BM25 search**
 > of real PNB docs → **sarvam-105b** (grounded answer / draft + citation) → **Mayura**
-> (translate back) → **Bulbul** (speak) — and unanswered questions become **n8n** tickets.
+> (translate back) → **Bulbul** (streamed speech) — and unanswered questions become **n8n** tickets.
 
 **System context**
 

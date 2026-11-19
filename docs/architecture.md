@@ -75,7 +75,7 @@ flowchart TB
     end
     subgraph L3["③ Voice — Sarvam"]
         STT["Saaras saaras:v3<br/>STT + language detect"]:::sarvam
-        TTS["Bulbul bulbul:v3 — TTS"]:::sarvam
+        TTS["Bulbul bulbul:v3<br/>streamed TTS"]:::sarvam
     end
     subgraph L4["④ Language — Sarvam"]
         TRN["Mayura mayura:v1<br/>translate in / out · language-lock"]:::sarvam
@@ -83,8 +83,9 @@ flowchart TB
     subgraph L5["⑤ Retrieval / knowledge"]
         ING["Ingestion (batch)<br/>parse → OCR → clean → chunk"]:::neutral
         IDX[("BM25 index<br/>~1,683 source-tagged passages")]:::store
-        RET["Retriever — top 2–3 + scores"]:::neutral
-        GATE{"Relevance gate<br/>(threshold)"}:::decision
+        RET["Retriever — top 6 + scores"]:::neutral
+        GATE{"Relevance gates<br/>score ≥ 7 · word overlap"}:::decision
+        DEC["Polite decline or<br/>“did you mean?” — no LLM"]:::decision
     end
     subgraph L6["⑥ Reasoning — Sarvam"]
         PB["Prompt builder<br/>grounding rules + context + citation"]:::neutral
@@ -95,7 +96,7 @@ flowchart TB
         ESC["Escalation service<br/>→ n8n webhook → Sheet + local JSONL"]:::escalate
     end
     subgraph L8["⑧ Governance & observability (cross-cutting)"]
-        LOG["Structured logging (per-stage)"]:::store
+        LOG["Structured logging (every turn)"]:::store
         DASH["Dashboard — volumes · languages<br/>confidence · escalations · gaps"]:::store
     end
 
@@ -109,7 +110,8 @@ flowchart TB
     GATE -->|yes| PB --> LLM --> PARSE
     PARSE -->|"answer"| TRN
     TRN -->|"localized answer"| TTS --> SPA
-    GATE -->|no| ESC
+    GATE -->|no| DEC
+    PARSE -->|"NO_INFO"| ESC
     PARSE --> LOG
     ESC --> LOG
     LOG --> DASH
@@ -135,7 +137,10 @@ flowchart TB
 **Component notes.** The **orchestrator** applies the efficiency levers (skip translate when
 the language is English; skip the LLM entirely on a gate-fail; cap answer length; reasoning
 off). **Ingestion** is an offline/batch pipeline, re-run only when documents change. The
-**relevance gate** is the safety heart: no sourced passage → no generation → escalate.
+**relevance gates** are the safety heart: no relevant passage → no generation → a polite decline,
+or a "did you mean?" list of related policy titles for a vague policy question (never for an
+off-topic one). A **ticket** is raised only when the model reads the passages and replies
+NO_INFO — a genuine gap in the documents.
 **Production upgrade:** swap/augment BM25 with **hybrid retrieval** (BM25 + dense embeddings +
 a cross-encoder reranker) on a vector store for higher precision.
 
@@ -160,45 +165,52 @@ sequenceDiagram
     participant L as Sarvam-105B (LLM)
     participant B as Bulbul (TTS)
 
-    E->>W: Speak question (records 16k WAV)
+    E->>W: Tap mic and speak (16 kHz WAV)
     W->>O: POST /api/ask (audio)
     O->>S: audio
     S-->>O: transcript + language
-    Note right of S: ~0.5–1.5s
+    Note right of S: ~1–1.7s
     alt language ≠ English
         O->>M: transcript
         M-->>O: English query
-        Note right of M: ~0.3–0.6s
+        Note right of M: ~1–2.4s
     end
     O->>R: English query
-    R-->>O: top 2–3 passages + scores
-    Note right of R: ~10–50ms
-    alt no relevant passage (gate fail)
-        O-->>W: "Can't answer" + ticket id
-        Note over O: escalate (ticket) — skip LLM + TTS
-    else relevant passage
+    R-->>O: top 6 passages + scores
+    Note right of R: ~5–20ms
+    alt gates fail (no relevant passage)
+        O-->>W: polite decline or "did you mean?" (no LLM, no ticket)
+    else relevant passages
         O->>L: grounded prompt (context + rules)
-        L-->>O: answer + cited source
-        Note right of L: ~1–2.5s
-        alt user language ≠ English
-            O->>M: answer
-            M-->>O: answer in user language (locked)
-            Note right of M: ~0.3–0.6s
+        L-->>O: answer + CITED N, or NO_INFO
+        Note right of L: ~1.3–1.9s
+        alt NO_INFO (not in the documents)
+            O-->>W: honest "couldn't find" + ticket id (local file + n8n)
+        else answer
+            alt user language ≠ English
+                O->>M: answer
+                M-->>O: answer in user language (locked)
+                Note right of M: ~1.5–3.4s
+            end
+            O-->>W: transcript · language · source + link · confidence · answer (text first)
+            W->>O: WebSocket /ws/speak
+            O->>B: answer text (streaming)
+            B-->>O: MP3 chunks
+            O-->>W: chunks relayed, played as they arrive
+            Note right of B: first sound ~0.6–1.5s
         end
-        O->>B: answer text
-        B-->>O: speech (user language)
-        Note right of B: ~1–2s
-        O-->>W: transcript · language · source + link · confidence · answer · audio
     end
-    W-->>E: Show panel + play spoken answer
-    O->>O: log interaction (per-stage latency)
+    W-->>E: Show answer + play streamed voice
+    O->>O: log interaction
 ```
 
 </details>
 
-**Latency budget:** target **~4–6s** end-to-end for a turn (text visible in ~2–3s; audio
-follows — TTS is usually the largest single cost). The **streaming captions** path
-(`/ws/transcribe`) is separate and real-time (words appear as you speak).
+**Latency (measured on sarvam-105b, November 2026):** English — answer text in ~1.2–2.3 s when
+typed, ~2.8 s by voice; other languages ~4–10 s (the two translation hops dominate). The spoken
+answer is **streamed** over a WebSocket, so the voice starts ~0.6–1.5 s after the text instead of
+waiting for the whole clip. The **streaming captions** path (`/ws/transcribe`) is separate and
+real-time (words appear as you speak).
 
 ---
 
@@ -223,17 +235,21 @@ flowchart LR
         CLEAN --> CHUNK --> IDX
     end
     Q["User query (English)"]:::app
-    RET["Retrieve top 2–3 + scores"]:::neutral
-    GATE{"max score ≥ threshold?"}:::decision
-    ESC["Escalate (no LLM)"]:::escalate
+    RET["Retrieve top 6 + scores"]:::neutral
+    GATE{"Gate 1: best score ≥ 7?<br/>Gate 2: question's words<br/>in best passage?"}:::decision
+    DEC["Polite decline or<br/>“did you mean?”<br/>(no LLM, no ticket)"]:::decision
     CTX["Assemble context<br/>passages + source tags"]:::neutral
     ANS["Sarvam-105B<br/>answer ONLY from context + cite source"]:::sarvam
+    CHK{"Answer, or NO_INFO?"}:::decision
     CITE["Attach citation + confidence"]:::neutral
+    ESC["Honest reply + ticket<br/>(local file + n8n)"]:::escalate
 
     IDX --> RET
     Q --> RET --> GATE
-    GATE -->|no| ESC
-    GATE -->|yes| CTX --> ANS --> CITE
+    GATE -->|no| DEC
+    GATE -->|yes| CTX --> ANS --> CHK
+    CHK -->|answer| CITE
+    CHK -->|NO_INFO| ESC
 
     classDef app fill:#0E1A2B,stroke:#0E1A2B,color:#ffffff;
     classDef sarvam fill:#2458F6,stroke:#1B3FB0,color:#ffffff;
@@ -263,23 +279,27 @@ nothing clears the threshold, it never reaches the model. This is the concrete c
 flowchart TB
     ASK["Employee asks<br/>(voice / typed)"]:::app
     SEARCH["Search approved documents"]:::neutral
-    CONF{"Confident, relevant answer?"}:::decision
+    GATES{"Relevant passages?<br/>(two gates)"}:::decision
+    DECL["Polite decline or “did you mean?”<br/>(no ticket)"]:::neutral
+    LLM["Sarvam-105B reads the passages"]:::neutral
+    CONF{"Answer in the documents?"}:::decision
     ANS["Answer + cited source + confidence"]:::neutral
     LOG[("Log interaction")]:::store
     DASH["Dashboard:<br/>knowledge-gap topics"]:::store
     TELL["Tell employee honestly:<br/>not in documents"]:::escalate
-    TICKET["Build ticket:<br/>question · ts · language · confidence · transcript"]:::escalate
+    TICKET["Build ticket: id · time · channel · question<br/>language · confidence · reason · team"]:::escalate
+    BACKUP[("Local JSONL ticket file<br/>(always)")]:::store
     N8N["n8n webhook"]:::escalate
     ROW["New row in tracking sheet<br/>(HR / policy team)"]:::store
-    BACKUP[("Local JSONL backup")]:::store
 
-    ASK --> SEARCH --> CONF
+    ASK --> SEARCH --> GATES
+    GATES -->|No| DECL --> LOG
+    GATES -->|Yes| LLM --> CONF
     CONF -->|Yes| ANS --> LOG --> DASH
-    CONF -->|No| TELL --> TICKET
+    CONF -->|"No (NO_INFO)"| TELL --> TICKET
     TICKET --> LOG
-    TICKET --> N8N
-    N8N --> ROW
-    N8N --> BACKUP
+    TICKET --> BACKUP
+    TICKET --> N8N --> ROW
 
     classDef app fill:#0E1A2B,stroke:#0E1A2B,color:#ffffff;
     classDef decision fill:#FB7A17,stroke:#C85F0E,color:#ffffff;
@@ -358,7 +378,7 @@ production uses the on-prem / sovereign option.
 
 | NFR | Approach |
 |---|---|
-| **Latency** | budget in §3; levers — skip-LLM-on-no-match, skip-translate-on-match, top-2–3 retrieval, capped answers, reasoning off, response cache for common questions |
+| **Latency** | measured in §3; levers — skip-LLM-on-no-match, skip-translate-for-English, top-6 retrieval (~5,000 characters of context), capped answers, reasoning off, streamed TTS; a response cache for common questions is planned |
 | **Scalability** | stateless app instances behind a load balancer; served in-memory index; cache layer; concurrency sized to demand |
 | **Availability & resilience** | health checks; graceful degradation — local ticket backup if n8n is down; type-fallback if the mic fails |
 
