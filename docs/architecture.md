@@ -111,7 +111,7 @@ flowchart TB
     PARSE -->|"answer"| TRN
     TRN -->|"localized answer"| TTS --> SPA
     GATE -->|no| DEC
-    PARSE -->|"NO_INFO"| ESC
+    PARSE -->|"NO_INFO on a banking question"| ESC
     PARSE --> LOG
     ESC --> LOG
     LOG --> DASH
@@ -140,7 +140,9 @@ off). **Ingestion** is an offline/batch pipeline, re-run only when documents cha
 **relevance gates** are the safety heart: no relevant passage → no generation → a polite decline,
 or a "did you mean?" list of related policy titles for a vague policy question (never for an
 off-topic one). A **ticket** is raised only when the model reads the passages and replies
-NO_INFO — a genuine gap in the documents.
+NO_INFO **and** a one-word check (asked without the passages) confirms the question is about
+banking or PNB — a genuine gap in the documents. Off-topic questions that reach the model
+("what is the date today?") get a polite decline instead, so the policy team's queue stays clean.
 **Production upgrade:** swap/augment BM25 with **hybrid retrieval** (BM25 + dense embeddings +
 a cross-encoder reranker) on a vector store for higher precision.
 
@@ -185,7 +187,12 @@ sequenceDiagram
         L-->>O: answer + CITED N, or NO_INFO
         Note right of L: ~1.3–1.9s
         alt NO_INFO (not in the documents)
-            O-->>W: honest "couldn't find" + ticket id (local file + n8n)
+            O->>L: about banking / PNB at all? (one-word check)
+            alt BANK
+                O-->>W: honest "couldn't find" + ticket id (local file + n8n)
+            else OTHER (off-topic)
+                O-->>W: polite decline (no ticket)
+            end
         else answer
             alt user language ≠ English
                 O->>M: answer
@@ -242,6 +249,8 @@ flowchart LR
     ANS["Sarvam-105B<br/>answer ONLY from context + cite source"]:::sarvam
     CHK{"Answer, or NO_INFO?"}:::decision
     CITE["Attach citation + confidence"]:::neutral
+    BQ{"About banking / PNB?<br/>(one-word check)"}:::decision
+    DEC2["Polite decline<br/>(no ticket)"]:::decision
     ESC["Honest reply + ticket<br/>(local file + n8n)"]:::escalate
 
     IDX --> RET
@@ -249,7 +258,9 @@ flowchart LR
     GATE -->|no| DEC
     GATE -->|yes| CTX --> ANS --> CHK
     CHK -->|answer| CITE
-    CHK -->|NO_INFO| ESC
+    CHK -->|NO_INFO| BQ
+    BQ -->|yes| ESC
+    BQ -->|no| DEC2
 
     classDef app fill:#0E1A2B,stroke:#0E1A2B,color:#ffffff;
     classDef sarvam fill:#2458F6,stroke:#1B3FB0,color:#ffffff;
@@ -283,6 +294,7 @@ flowchart TB
     DECL["Polite decline or “did you mean?”<br/>(no ticket)"]:::neutral
     LLM["Sarvam-105B reads the passages"]:::neutral
     CONF{"Answer in the documents?"}:::decision
+    BQ{"About banking / PNB?"}:::decision
     ANS["Answer + cited source + confidence"]:::neutral
     LOG[("Log interaction")]:::store
     DASH["Dashboard:<br/>knowledge-gap topics"]:::store
@@ -296,7 +308,9 @@ flowchart TB
     GATES -->|No| DECL --> LOG
     GATES -->|Yes| LLM --> CONF
     CONF -->|Yes| ANS --> LOG --> DASH
-    CONF -->|"No (NO_INFO)"| TELL --> TICKET
+    CONF -->|"No (NO_INFO)"| BQ
+    BQ -->|No| DECL
+    BQ -->|Yes| TELL --> TICKET
     TICKET --> LOG
     TICKET --> BACKUP
     TICKET --> N8N --> ROW
