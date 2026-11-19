@@ -61,6 +61,7 @@ class KnowledgeBase:
         self.chunks = []   # list of dicts: text, pdf, label, url
         self._load()
         self._bm25 = BM25Okapi([_tokenize(c["text"]) for c in self.chunks])
+        self.vocab = set(self._bm25.idf)   # every word that appears anywhere in the PNB documents
 
     def _load(self):
         manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))

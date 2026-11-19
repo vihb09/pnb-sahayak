@@ -90,6 +90,14 @@ GENERIC_TOPIC_WORDS = {"policy", "policies", "scheme", "schemes", "circular", "c
                        "notice", "notices", "rule", "rules", "guideline", "guidelines",
                        "benefit", "benefits", "detail", "details", "information", "info",
                        "document", "documents", "related", "regarding", "matter", "matters"}
+# Words that say nothing about WHICH policy is meant (time, quantity, chit-chat). They must never
+# be the reason a "did you mean?" suggestion appears - e.g. "Who won the IPL this year?" used to
+# match a circular titled "... for the calendar year-2015".
+CLARIFY_IGNORE = {"year", "years", "yearly", "month", "months", "monthly", "week", "weeks", "today",
+                  "tomorrow", "yesterday", "date", "dates", "time", "times", "current", "latest",
+                  "recent", "first", "last", "next", "number", "much", "many", "more", "most", "also",
+                  "only", "just", "some", "every", "each", "other", "know", "like", "best", "good",
+                  "make", "made", "show", "find", "said", "says"}
 STOPWORDS = {
     "the", "and", "for", "are", "was", "what", "when", "how", "why", "who", "which",
     "does", "did", "can", "will", "would", "should", "you", "your", "our", "their",
@@ -314,8 +322,16 @@ class Assistant:
         stem). Used to offer 'did you mean one of these policies?' instead of a flat decline.
         Matching on the title (not loose body text) + grouping by scheme is what keeps this
         honest — it only surfaces documents genuinely about the topic, and never invents an
-        answer. Returns [{label, query}] (query = full title, to re-ask cleanly) or []."""
-        terms = [t for t in _content_terms(query_en) if len(t) >= 4]
+        answer. Returns [{label, query}] (query = full title, to re-ask cleanly) or [].
+        Off-topic questions never get suggestions: if most of the question's topic words never
+        appear anywhere in the PNB documents (e.g. "IPL", "weather", "cricket"), it isn't a
+        vague policy question, so we return [] and the caller declines politely."""
+        topic = [t for t in _content_terms(query_en)
+                 if t not in GENERIC_TOPIC_WORDS and t not in CLARIFY_IGNORE]
+        known = sum(1 for t in topic if t in self.kb.vocab)
+        if topic and known * 3 < len(topic) * 2:      # under two-thirds known -> off-topic
+            return []
+        terms = [t for t in _content_terms(query_en) if len(t) >= 4 and t not in CLARIFY_IGNORE]
         if not terms:
             return []
         out, seen = [], set()
