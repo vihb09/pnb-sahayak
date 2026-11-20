@@ -224,7 +224,7 @@ function render(card,d){
     if(d.source) meta+=`<a class="src" href="${esc(d.source.url)}" target="_blank" rel="noopener"><span class="ic">📄</span><span>${esc(d.source.label||d.source.pdf)}<small>${esc(d.source.pdf)}</small></span></a>`;
   }else if(d.source){
     meta=`<a class="src" href="${esc(d.source.url)}" target="_blank" rel="noopener"><span class="ic">📄</span><span>${esc(d.source.label||d.source.pdf)}<small>${esc(d.source.pdf)}</small></span></a>`;
-    if(d.confidence&&d.confidence!=='—') meta+=`<span class="badge ${d.confidence}">${d.confidence} confidence</span>`;
+    if(d.confidence&&d.confidence!=='—') meta+=`<span class="badge ${d.confidence}" title="How strongly the cited document matched the question (keyword-search strength) — not a measure of correctness">${d.confidence} match</span>`;
   }else if(d.kind==='escalate'||d.escalate){
     meta=`<span class="flag">⚠️ No matching document — flagged to the policy team${d.ticket_id?' · ticket <b>'+esc(d.ticket_id)+'</b>':''}</span>`;
   }else if(d.kind==='capability'||d.kind==='greeting'){

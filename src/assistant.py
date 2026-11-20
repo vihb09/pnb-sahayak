@@ -246,6 +246,24 @@ def _is_notfound(text):
     return any(p in t for p in NOT_FOUND_PHRASES)
 
 
+# A reply that OPENS by saying the documents don't cover it is a non-answer (a long hedge like
+# "The context does not specify the exact KYC documents..."), not a real answer - so it must be
+# treated as "not found" even when it runs past the short-refusal length limit. Only the OPENING
+# is checked, so a genuine answer that later adds a small caveat is unaffected.
+_NOTFOUND_OPENERS = (
+    "the context does not", "the provided context does not", "the given context does not",
+    "the context doesn't", "this context does not", "the context does not provide",
+    "the documents do not", "the document does not", "the provided documents do not",
+    "the passages do not", "the provided information does not", "the context lacks",
+    "there is no information", "no information is",
+)
+
+
+def _opens_notfound(text):
+    head = (text or "").lower().lstrip()[:60]
+    return any(head.startswith(p) for p in _NOTFOUND_OPENERS)
+
+
 def greeting_reply(text):
     """Return a friendly reply if this is a greeting/thanks/farewell, else None."""
     t = re.sub(r"[^a-z\s']", " ", (text or "").lower())
@@ -485,6 +503,7 @@ class Assistant:
         # refusal is short; a long answer that merely hedges one clause is still an answer.
         up = answer_en.upper()
         if ((not raw) or len(answer_en) < 3 or up == "NO_INFO" or up.startswith("NO_INFO")
+                or _opens_notfound(answer_en)
                 or (len(answer_en) <= 160 and _is_notfound(answer_en))):
             if not _is_bank_question(query_en):   # off-topic -> polite decline, NO ticket
                 return self._reply(question, language_code, plan, timings, POLITE_OFFTOPIC,
