@@ -41,5 +41,8 @@ logs/
 # ===== Golden-set run output (regenerated each run) =====
 tests/golden_results.json
 
+# ===== Local-only interview prep (PRIVATE — never publish) =====
+prep/
+
 # ===== Local-only helper: a browser page to view the diagram PNGs offline =====
 view-diagrams.html
